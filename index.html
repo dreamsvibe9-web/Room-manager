@@ -1,800 +1,102 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bachelor Room Manager</title>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --bg: #0f0f13;
-    --surface: #1a1a22;
-    --surface2: #22222e;
-    --accent: #f0a500;
-    --accent2: #e05a00;
-    --green: #2ecc71;
-    --red: #e74c3c;
-    --blue: #3498db;
-    --purple: #9b59b6;
-    --text: #f0ede8;
-    --muted: #888794;
-    --border: rgba(255,255,255,0.08);
-  }
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; min-height:100vh; }
-
-  /* POPUP OVERLAY */
-  #popup-overlay {
-    position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999;
-    display:flex; align-items:center; justify-content:center;
-    backdrop-filter:blur(6px);
-  }
-  .popup-box {
-    background:var(--surface); border:1px solid var(--accent); border-radius:16px;
-    padding:2rem 2.5rem; max-width:420px; width:90%; text-align:center;
-    animation: popIn 0.4s cubic-bezier(.34,1.56,.64,1);
-  }
-  @keyframes popIn { from{transform:scale(0.7);opacity:0} to{transform:scale(1);opacity:1} }
-  .popup-icon { font-size:3rem; margin-bottom:1rem; }
-  .popup-box h2 { font-family:'Syne',sans-serif; font-size:1.4rem; color:var(--accent); margin-bottom:0.75rem; }
-  .popup-box p { color:var(--muted); font-size:0.95rem; line-height:1.6; }
-  .popup-close {
-    margin-top:1.5rem; background:var(--accent); color:#000; border:none;
-    padding:0.6rem 2rem; border-radius:8px; font-family:'Syne',sans-serif;
-    font-weight:700; cursor:pointer; font-size:0.95rem;
-  }
-  .popup-close:hover { background:#ffc233; }
-
-  /* HEADER */
-  header {
-    background:var(--surface); border-bottom:1px solid var(--border);
-    padding:1rem 2rem; display:flex; align-items:center; justify-content:space-between;
-    position:sticky; top:0; z-index:100;
-  }
-  .logo { font-family:'Syne',sans-serif; font-size:1.3rem; font-weight:800; }
-  .logo span { color:var(--accent); }
-  .header-date { color:var(--muted); font-size:0.85rem; }
-  .today-badge {
-    background:var(--accent); color:#000; border-radius:6px;
-    padding:0.3rem 0.8rem; font-size:0.8rem; font-family:'Syne',sans-serif; font-weight:700;
-  }
-
-  /* NAV */
-  nav {
-    background:var(--surface2); padding:0 2rem;
-    display:flex; gap:0; border-bottom:1px solid var(--border); overflow-x:auto;
-  }
-  nav button {
-    background:none; border:none; color:var(--muted); padding:1rem 1.2rem;
-    font-family:'DM Sans',sans-serif; font-size:0.9rem; cursor:pointer;
-    border-bottom:2px solid transparent; white-space:nowrap; transition:all 0.2s;
-  }
-  nav button.active { color:var(--accent); border-bottom-color:var(--accent); }
-  nav button:hover { color:var(--text); }
-
-  /* MAIN */
-  main { padding:2rem; max-width:1100px; margin:0 auto; }
-  .section { display:none; }
-  .section.active { display:block; }
-
-  /* CARDS */
-  .card {
-    background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:1.5rem;
-    margin-bottom:1.5rem;
-  }
-  .card-title {
-    font-family:'Syne',sans-serif; font-size:1rem; font-weight:700; color:var(--accent);
-    margin-bottom:1.25rem; display:flex; align-items:center; gap:0.5rem;
-  }
-  .card-title .dot { width:8px; height:8px; border-radius:50%; background:var(--accent); flex-shrink:0; }
-
-  /* GRID */
-  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; }
-  .grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; }
-  @media(max-width:700px){ .grid-2,.grid-3{grid-template-columns:1fr;} }
-
-  /* FORM ELEMENTS */
-  input, textarea, select {
-    width:100%; background:var(--surface2); border:1px solid var(--border);
-    color:var(--text); border-radius:8px; padding:0.6rem 0.8rem; font-family:'DM Sans',sans-serif;
-    font-size:0.9rem; outline:none; transition:border 0.2s;
-  }
-  input:focus, textarea:focus, select:focus { border-color:var(--accent); }
-  label { font-size:0.8rem; color:var(--muted); display:block; margin-bottom:0.3rem; }
-  .form-row { margin-bottom:1rem; }
-  .btn {
-    background:var(--accent); color:#000; border:none; border-radius:8px;
-    padding:0.65rem 1.4rem; font-family:'Syne',sans-serif; font-weight:700;
-    font-size:0.875rem; cursor:pointer; transition:all 0.2s;
-  }
-  .btn:hover { background:#ffc233; transform:translateY(-1px); }
-  .btn-sm { padding:0.35rem 0.75rem; font-size:0.78rem; }
-  .btn-red { background:var(--red); color:#fff; }
-  .btn-red:hover { background:#ff6b5b; }
-  .btn-green { background:var(--green); color:#000; }
-  .btn-blue { background:var(--blue); color:#fff; }
-
-  /* TABLES */
-  table { width:100%; border-collapse:collapse; font-size:0.88rem; }
-  th { text-align:left; color:var(--muted); padding:0.6rem 0.8rem; border-bottom:1px solid var(--border); font-weight:500; }
-  td { padding:0.7rem 0.8rem; border-bottom:1px solid rgba(255,255,255,0.04); vertical-align:middle; }
-  tr:last-child td { border-bottom:none; }
-  tr:hover td { background:rgba(255,255,255,0.02); }
-
-  /* BADGES */
-  .badge {
-    display:inline-block; padding:0.25rem 0.65rem; border-radius:6px;
-    font-size:0.75rem; font-weight:500;
-  }
-  .badge-green { background:rgba(46,204,113,0.15); color:var(--green); }
-  .badge-red { background:rgba(231,76,60,0.15); color:var(--red); }
-  .badge-yellow { background:rgba(240,165,0,0.15); color:var(--accent); }
-  .badge-blue { background:rgba(52,152,219,0.15); color:var(--blue); }
-  .badge-purple { background:rgba(155,89,182,0.15); color:var(--purple); }
-
-  /* TODAY HIGHLIGHT */
-  .today-menu-card {
-    background:linear-gradient(135deg, #1e1a0e 0%, #221a00 100%);
-    border:1px solid rgba(240,165,0,0.3); border-radius:16px; padding:2rem;
-    position:relative; overflow:hidden; margin-bottom:1.5rem;
-  }
-  .today-menu-card::before {
-    content:''; position:absolute; top:-40px; right:-40px;
-    width:160px; height:160px; border-radius:50%;
-    background:rgba(240,165,0,0.06);
-  }
-  .menu-day-label { font-size:0.75rem; color:var(--accent); text-transform:uppercase; letter-spacing:2px; margin-bottom:0.4rem; }
-  .menu-main { font-family:'Syne',sans-serif; font-size:1.6rem; font-weight:800; color:var(--text); }
-  .menu-sub { color:var(--muted); font-size:0.9rem; margin-top:0.4rem; }
-  .menu-items { display:flex; gap:0.75rem; flex-wrap:wrap; margin-top:1rem; }
-  .menu-item-tag { background:rgba(240,165,0,0.12); color:var(--accent); border:1px solid rgba(240,165,0,0.2); border-radius:20px; padding:0.3rem 0.9rem; font-size:0.82rem; }
-
-  /* STAT CARDS */
-  .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:1.25rem; text-align:center; }
-  .stat-number { font-family:'Syne',sans-serif; font-size:2rem; font-weight:800; color:var(--accent); }
-  .stat-label { color:var(--muted); font-size:0.8rem; margin-top:0.2rem; }
-
-  /* HIGHLIGHT BOX */
-  .highlight-box { border-left:3px solid var(--accent); background:rgba(240,165,0,0.06); border-radius:0 8px 8px 0; padding:1rem 1.25rem; margin-bottom:1rem; }
-  .highlight-box.red-hl { border-left-color:var(--red); background:rgba(231,76,60,0.06); }
-  .highlight-box.green-hl { border-left-color:var(--green); background:rgba(46,204,113,0.06); }
-  .highlight-text { font-size:0.9rem; line-height:1.6; }
-
-  /* COOK MESSAGE */
-  .cook-msg { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:1.25rem; margin-bottom:1rem; }
-  .cook-msg-header { display:flex; align-items:center; gap:0.6rem; margin-bottom:0.6rem; }
-  .cook-avatar { width:36px; height:36px; border-radius:50%; background:var(--accent2); display:flex; align-items:center; justify-content:center; font-size:1rem; font-weight:700; color:#fff; font-family:'Syne',sans-serif; }
-  .cook-msg-name { font-weight:500; font-size:0.9rem; }
-  .cook-msg-time { font-size:0.75rem; color:var(--muted); }
-  .cook-msg-body { font-size:0.88rem; color:var(--text); line-height:1.6; padding-left:44px; }
-
-  /* DELETE btn */
-  .del-btn { background:none; border:none; color:var(--muted); cursor:pointer; font-size:1rem; padding:0.2rem; transition:color 0.2s; }
-  .del-btn:hover { color:var(--red); }
-
-  /* SECTION HEADERS */
-  .sec-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem; }
-  .sec-title { font-family:'Syne',sans-serif; font-size:1.4rem; font-weight:800; }
-
-  /* CHECKBOX */
-  .check-item { display:flex; align-items:center; gap:0.75rem; padding:0.6rem 0; border-bottom:1px solid var(--border); }
-  .check-item:last-child { border-bottom:none; }
-  .check-item input[type=checkbox] { width:18px; height:18px; accent-color:var(--accent); cursor:pointer; flex-shrink:0; }
-  .check-item.done span { text-decoration:line-through; color:var(--muted); }
-
-  /* ROTATING SCHEDULE */
-  .rota-row { display:flex; align-items:center; gap:1rem; padding:0.75rem 0; border-bottom:1px solid var(--border); }
-  .rota-day { font-family:'Syne',sans-serif; font-weight:700; min-width:80px; }
-  .rota-today-marker { font-size:0.7rem; background:var(--accent); color:#000; border-radius:4px; padding:0.1rem 0.4rem; margin-left:0.4rem; font-weight:700; }
-  .rota-person { flex:1; }
-  .rota-type { font-size:0.8rem; color:var(--muted); }
-
-  /* INFO SECTION */
-  .info-block { background:var(--surface2); border-radius:10px; padding:1.25rem; margin-bottom:1rem; }
-  .info-block h4 { font-family:'Syne',sans-serif; font-size:0.95rem; color:var(--accent); margin-bottom:0.5rem; }
-  .info-block p { font-size:0.88rem; color:var(--text); line-height:1.6; }
-
-  /* ANNOUNCEMENT banner */
-  .announce-banner {
-    background:rgba(231,76,60,0.12); border:1px solid rgba(231,76,60,0.3);
-    border-radius:10px; padding:1rem 1.25rem; display:flex; align-items:flex-start;
-    gap:0.75rem; margin-bottom:1.5rem;
-  }
-  .announce-icon { font-size:1.2rem; flex-shrink:0; margin-top:2px; }
-  .announce-text { font-size:0.9rem; line-height:1.5; }
-  .announce-text strong { color:var(--red); }
-</style>
-</head>
-<body>
-
-<!-- POPUP MESSAGE (shown on load) -->
-<div id="popup-overlay">
-  <div class="popup-box">
-    <div class="popup-icon">📢</div>
-    <h2 id="popup-title">Welcome to Room Manager!</h2>
-    <p id="popup-body">Check today's menu and your assigned duties. Don't forget to mark your tasks as done!</p>
-    <button class="popup-close" onclick="document.getElementById('popup-overlay').style.display='none'">Got it ✓</button>
-  </div>
-</div>
-
-<!-- HEADER -->
-<header>
-  <div class="logo" id="site-logo">🏠 Room<span>Boss</span></div>
-  <div style="display:flex;align-items:center;gap:1rem;">
-    <div class="header-date" id="live-date"></div>
-    <div class="today-badge" id="today-day"></div>
-  </div>
-</header>
-
-<!-- NAV -->
-<nav>
-  <button class="active" onclick="showSection('dashboard',this)">🏠 Dashboard</button>
-  <button onclick="showSection('menu',this)">🍽️ Menu</button>
-  <button onclick="showSection('purchase',this)">🛒 Purchase</button>
-  <button onclick="showSection('cleaning',this)">🧹 Cleaning</button>
-  <button onclick="showSection('cook',this)">👨‍🍳 Cook Board</button>
-  <button onclick="showSection('info',this)">ℹ️ Info</button>
-  <button onclick="showSection('noticeboard',this)">📌 Notice Board</button>
-  <button onclick="showSection('admin',this)">⚙️ Admin</button>
-</nav>
-
-<main>
-
-<!-- ==================== DASHBOARD ==================== -->
-<div id="section-dashboard" class="section active">
-  <div class="sec-header">
-    <div class="sec-title">Today at a Glance</div>
-  </div>
-
-  <!-- ANNOUNCEMENT -->
-  <div class="announce-banner" id="announce-banner" style="display:none;">
-    <div class="announce-icon">🚨</div>
-    <div class="announce-text"><strong id="announce-text">Announcement here</strong></div>
-    <button class="del-btn" style="margin-left:auto;" onclick="document.getElementById('announce-banner').style.display='none'">✕</button>
-  </div>
-
-  <!-- STATS -->
-  <div class="grid-3" style="margin-bottom:1.5rem;">
-    <div class="stat-card">
-      <div class="stat-number" id="stat-members">0</div>
-      <div class="stat-label">Members</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-number" id="stat-pending">0</div>
-      <div class="stat-label">Pending Purchases</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-number" id="stat-tasks">0</div>
-      <div class="stat-label">Tasks Done Today</div>
-    </div>
-  </div>
-
-  <!-- TODAY MENU -->
-  <div class="today-menu-card" id="dash-today-menu">
-    <div class="menu-day-label">Today's Menu</div>
-    <div class="menu-main" id="dash-menu-name">Loading...</div>
-    <div class="menu-sub" id="dash-menu-desc"></div>
-    <div class="menu-items" id="dash-menu-items"></div>
-  </div>
-
-  <div class="grid-2">
-    <!-- TODAY'S DUTY -->
-    <div class="card">
-      <div class="card-title"><div class="dot"></div> Today's Duties</div>
-      <div id="dash-duties">
-        <div style="color:var(--muted);font-size:0.88rem;">No duties assigned for today.</div>
-      </div>
-    </div>
-
-    <!-- HIGHLIGHTS -->
-    <div class="card">
-      <div class="card-title"><div class="dot"></div> Highlights</div>
-      <div id="dash-highlights">
-        <div class="highlight-box red-hl">
-          <div class="highlight-text">🛒 Vegetables running low — check purchase list</div>
-        </div>
-        <div class="highlight-box green-hl">
-          <div class="highlight-text">✅ Kitchen cleaned yesterday</div>
-        </div>
-        <div class="highlight-box">
-          <div class="highlight-text">💡 Tip: Save electricity, switch off lights when leaving</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- COOK LATEST MSG -->
-  <div class="card">
-    <div class="card-title"><div class="dot"></div> Latest from Cook</div>
-    <div id="dash-cook-latest">
-      <div style="color:var(--muted);font-size:0.88rem;">No messages yet.</div>
-    </div>
-  </div>
-</div>
-
-<!-- ==================== MENU ==================== -->
-<div id="section-menu" class="section">
-  <div class="sec-header">
-    <div class="sec-title">Weekly Menu</div>
-    <button class="btn btn-sm" onclick="document.getElementById('menu-add-form').style.display=document.getElementById('menu-add-form').style.display==='none'?'block':'none'">+ Edit Menu</button>
-  </div>
-
-  <div id="menu-add-form" style="display:none;" class="card">
-    <div class="card-title"><div class="dot"></div> Set Menu for a Day</div>
-    <div class="grid-2">
-      <div class="form-row">
-        <label>Day</label>
-        <select id="menu-day">
-          <option>Monday</option><option>Tuesday</option><option>Wednesday</option>
-          <option>Thursday</option><option>Friday</option><option>Saturday</option><option>Sunday</option>
-        </select>
-      </div>
-      <div class="form-row">
-        <label>Main Dish</label>
-        <input type="text" id="menu-main-input" placeholder="e.g. Rice & Dal">
-      </div>
-    </div>
-    <div class="form-row">
-      <label>Side Items (comma separated)</label>
-      <input type="text" id="menu-sides-input" placeholder="e.g. Salad, Pickle, Papad">
-    </div>
-    <div class="form-row">
-      <label>Description / Notes</label>
-      <input type="text" id="menu-desc-input" placeholder="e.g. Special Friday meal">
-    </div>
-    <button class="btn" onclick="saveMenu()">Save Menu</button>
-  </div>
-
-  <div id="menu-weekly-display">
-    <!-- Generated by JS -->
-  </div>
-</div>
-
-<!-- ==================== PURCHASE ==================== -->
-<div id="section-purchase" class="section">
-  <div class="sec-header">
-    <div class="sec-title">Purchase List</div>
-  </div>
-
-  <div class="grid-2">
-    <!-- ADD ITEM -->
-    <div class="card">
-      <div class="card-title"><div class="dot"></div> Add Purchase Item</div>
-      <div class="form-row"><label>Item Name</label><input type="text" id="pur-item" placeholder="e.g. Tomatoes"></div>
-      <div class="form-row"><label>Quantity / Amount</label><input type="text" id="pur-qty" placeholder="e.g. 2kg or ₹100"></div>
-      <div class="form-row"><label>Assigned To</label><input type="text" id="pur-person" placeholder="Person's name" list="members-list"></div>
-      <div class="form-row"><label>Date Needed</label><input type="date" id="pur-date"></div>
-      <button class="btn" onclick="addPurchase()">Add Item</button>
-    </div>
-
-    <!-- PURCHASE HIGHLIGHTS -->
-    <div class="card">
-      <div class="card-title"><div class="dot"></div> Status Overview</div>
-      <div id="purchase-overview"></div>
-    </div>
-  </div>
-
-  <!-- PURCHASE TABLE -->
-  <div class="card">
-    <div class="card-title"><div class="dot"></div> All Purchase Items</div>
-    <div style="overflow-x:auto;">
-      <table>
-        <thead><tr><th>Item</th><th>Qty/Amount</th><th>Assigned To</th><th>Date</th><th>Status</th><th>Action</th></tr></thead>
-        <tbody id="purchase-table-body"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- BY PERSON -->
-  <div class="card">
-    <div class="card-title"><div class="dot"></div> Assigned by Person (Today)</div>
-    <div id="purchase-by-person"></div>
-  </div>
-</div>
-
-<!-- ==================== CLEANING ==================== -->
-<div id="section-cleaning" class="section">
-  <div class="sec-header">
-    <div class="sec-title">Cleaning Schedule</div>
-    <button class="btn btn-sm" onclick="toggleCleanForm()">+ Add Task</button>
-  </div>
-
-  <!-- ADD / EDIT FORM -->
-  <div id="clean-add-form" style="display:none;" class="card">
-    <div class="card-title"><div class="dot"></div> <span id="clean-form-title">Add Cleaning Task</span></div>
-    <input type="hidden" id="clean-edit-id" value="">
-    <div class="grid-2">
-      <div class="form-row"><label>Task Name</label><input type="text" id="clean-task" placeholder="e.g. Mop bathroom"></div>
-      <div class="form-row"><label>Assigned To</label><input type="text" id="clean-person" placeholder="Name" list="members-list"></div>
-    </div>
-    <div class="grid-2">
-      <div class="form-row">
-        <label>Day / Frequency</label>
-        <select id="clean-day">
-          <option value="Daily">Daily</option>
-          <option value="Monday">Monday</option><option value="Tuesday">Tuesday</option>
-          <option value="Wednesday">Wednesday</option><option value="Thursday">Thursday</option>
-          <option value="Friday">Friday</option><option value="Saturday">Saturday</option>
-          <option value="Sunday">Sunday</option>
-          <option value="Weekly">Weekly (Any)</option>
-        </select>
-      </div>
-      <div class="form-row">
-        <label>Area</label>
-        <select id="clean-area">
-          <option>Kitchen</option><option>Bathroom</option><option>Living Room</option>
-          <option>Bedroom</option><option>Corridor</option><option>Balcony</option><option>Common Area</option>
-        </select>
-      </div>
-    </div>
-    <div class="grid-2">
-      <div class="form-row">
-        <label>Specific Date (optional — leave blank for recurring)</label>
-        <input type="date" id="clean-date">
-      </div>
-      <div class="form-row">
-        <label>Notes</label>
-        <input type="text" id="clean-notes" placeholder="e.g. Use floor cleaner">
-      </div>
-    </div>
-    <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
-      <button class="btn" onclick="saveCleaningTask()">💾 Save Task</button>
-      <button class="btn btn-sm" style="background:var(--surface2);color:var(--muted);border:1px solid var(--border);" onclick="cancelCleanEdit()">Cancel</button>
-    </div>
-  </div>
-
-  <!-- TODAY'S CLEANING HIGHLIGHT -->
-  <div class="card">
-    <div class="card-title"><div class="dot"></div> Today's Cleaning — <span id="today-clean-day" style="color:var(--accent);"></span></div>
-    <div id="today-cleaning-list"></div>
-  </div>
-
-  <!-- UPCOMING / SPECIFIC DATE TASKS -->
-  <div class="card">
-    <div class="card-title"><div class="dot"></div> Upcoming Scheduled Dates</div>
-    <div id="upcoming-cleaning-list"></div>
-  </div>
-
-  <!-- FULL SCHEDULE TABLE -->
-  <div class="card">
-    <div class="card-title"><div class="dot"></div> All Cleaning Tasks</div>
-    <div style="overflow-x:auto;">
-      <table>
-        <thead><tr><th>Task</th><th>Area</th><th>Assigned To</th><th>Schedule</th><th>Specific Date</th><th>Notes</th><th>Status</th><th>Actions</th></tr></thead>
-        <tbody id="cleaning-table-body"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- HISTORY -->
-  <div class="card">
-    <div class="card-title"><div class="dot"></div> Completion History (Last 7 days)</div>
-    <div id="cleaning-history"></div>
-  </div>
-</div>
-
-<!-- ==================== COOK BOARD ==================== -->
-<div id="section-cook" class="section">
-  <div class="sec-header">
-    <div class="sec-title">Cook's Notice Board</div>
-  </div>
-
-  <!-- POST MESSAGE (cook section) -->
-  <div class="card">
-    <div class="card-title"><div class="dot"></div> Post a Message (Cook)</div>
-    <div class="form-row"><label>Cook's Name</label><input type="text" id="cook-name" placeholder="Enter cook name"></div>
-    <div class="form-row"><label>Message</label><textarea id="cook-msg-input" rows="3" placeholder="e.g. Tomorrow I'll cook biryani. Need extra spices. Please arrange."></textarea></div>
-    <button class="btn" onclick="postCookMessage()">Post Message</button>
-  </div>
-
-  <!-- MESSAGES DISPLAY -->
-  <div class="card">
-    <div class="card-title"><div class="dot"></div> Messages from Cook</div>
-    <div id="cook-messages-list">
-      <div style="color:var(--muted);font-size:0.88rem;">No messages yet.</div>
-    </div>
-  </div>
-
-  <!-- GROCERY REQUEST -->
-  <div class="card">
-    <div class="card-title"><div class="dot"></div> Grocery Requests from Cook</div>
-    <div class="form-row"><label>Cook Name</label><input type="text" id="cook-req-name" placeholder="Cook's name"></div>
-    <div class="form-row"><label>Items Needed (one per line)</label><textarea id="cook-req-items" rows="4" placeholder="Rice - 5kg&#10;Oil - 1 litre&#10;Onions - 2kg"></textarea></div>
-    <div class="form-row"><label>Needed by Date</label><input type="date" id="cook-req-date"></div>
-    <button class="btn" onclick="addCookGrocery()">Submit Request</button>
-  </div>
-
-  <div class="card">
-    <div class="card-title"><div class="dot"></div> Pending Grocery Requests</div>
-    <div id="cook-grocery-list">
-      <div style="color:var(--muted);font-size:0.88rem;">No requests yet.</div>
-    </div>
-  </div>
-</div>
-
-<!-- ==================== INFO ==================== -->
-<div id="section-info" class="section">
-  <div class="sec-header">
-    <div class="sec-title">Room Information</div>
-    <button id="info-add-btn" class="btn btn-sm admin-only" style="display:none;" onclick="toggleInfoForm()">+ Add Info</button>
-  </div>
-
-  <!-- ADMIN ONLY: Add/Edit form -->
-  <div id="info-add-form" style="display:none;" class="card">
-    <div class="card-title"><div class="dot"></div> <span id="info-form-label">Add Information</span></div>
-    <input type="hidden" id="info-edit-id" value="">
-    <div class="form-row"><label>Title</label><input type="text" id="info-title-input" placeholder="e.g. WiFi Password"></div>
-    <div class="form-row"><label>Content</label><textarea id="info-content-input" rows="3" placeholder="Enter the information..."></textarea></div>
-    <div style="display:flex;gap:0.75rem;">
-      <button class="btn" onclick="saveInfo()">💾 Save</button>
-      <button class="btn btn-sm" style="background:var(--surface2);color:var(--muted);border:1px solid var(--border);" onclick="cancelInfoEdit()">Cancel</button>
-    </div>
-  </div>
-
-  <!-- ALL INFO BLOCKS rendered by JS -->
-  <div id="info-list"></div>
-</div>
-
-<!-- ==================== NOTICE BOARD (public) ==================== -->
-<div id="section-noticeboard" class="section">
-  <div class="sec-header">
-    <div class="sec-title">📌 Notice Board</div>
-  </div>
-  <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.5rem;">Anyone can post announcements, highlights and popup messages here — no login needed.</p>
-
-  <!-- POPUP EDITOR -->
-  <div class="card">
-    <div class="card-title"><div class="dot"></div> 📢 Set Popup Message</div>
-    <p style="color:var(--muted);font-size:0.82rem;margin-bottom:1rem;">This message pops up for everyone when the page loads.</p>
-    <div class="form-row"><label>Popup Title</label><input type="text" id="popup-title-input" placeholder="e.g. Reminder!"></div>
-    <div class="form-row"><label>Popup Message</label><textarea id="popup-msg-input" rows="3" placeholder="Message to show on page load..."></textarea></div>
-    <button class="btn" onclick="savePopup()">💾 Save & Show on Reload</button>
-  </div>
-
-  <!-- ANNOUNCEMENT -->
-  <div class="card">
-    <div class="card-title"><div class="dot"></div> 🚨 Post Announcement Banner</div>
-    <p style="color:var(--muted);font-size:0.82rem;margin-bottom:1rem;">Shown as a red banner at the top of the dashboard for everyone.</p>
-    <div class="form-row"><label>Announcement Text</label><input type="text" id="announce-input" placeholder="e.g. 🚰 Water will be off tomorrow 10AM-1PM"></div>
-    <div style="display:flex;gap:0.75rem;">
-      <button class="btn btn-red" onclick="postAnnouncement()">📣 Post Announcement</button>
-      <button class="btn btn-sm" style="background:var(--surface2);color:var(--muted);border:1px solid var(--border);" onclick="clearAnnouncement()">✕ Clear Banner</button>
-    </div>
-    <div id="nb-current-announce" style="margin-top:1rem;"></div>
-  </div>
-
-  <!-- HIGHLIGHTS -->
-  <div class="card">
-    <div class="card-title"><div class="dot"></div> ✨ Dashboard Highlights</div>
-    <p style="color:var(--muted);font-size:0.82rem;margin-bottom:1rem;">Add short notices that appear on the dashboard for everyone to see.</p>
-    <div class="grid-2">
-      <div class="form-row"><label>Highlight Text</label><input type="text" id="hl-text" placeholder="e.g. Gas almost empty!"></div>
-      <div class="form-row">
-        <label>Type</label>
-        <select id="hl-type">
-          <option value="yellow">⚠️ Warning (Yellow)</option>
-          <option value="red">🔴 Urgent (Red)</option>
-          <option value="green">✅ Done (Green)</option>
-        </select>
-      </div>
-    </div>
-    <button class="btn" onclick="addHighlight()">+ Add Highlight</button>
-    <div id="nb-highlights-list" style="margin-top:1.25rem;"></div>
-  </div>
-</div>
-
-<!-- ==================== ADMIN ==================== -->
-<div id="section-admin" class="section">
-
-  <!-- LOGIN GATE -->
-  <div id="admin-login-gate">
-    <div style="max-width:380px;margin:3rem auto;">
-      <div class="card" style="border-color:rgba(240,165,0,0.3);text-align:center;">
-        <div style="font-size:3rem;margin-bottom:1rem;">🔐</div>
-        <div style="font-family:'Syne',sans-serif;font-size:1.2rem;font-weight:800;color:var(--accent);margin-bottom:0.4rem;">Admin Access</div>
-        <div style="color:var(--muted);font-size:0.85rem;margin-bottom:1.5rem;">Enter admin credentials to continue</div>
-        <div class="form-row"><label>Username</label><input type="text" id="admin-username-input" placeholder="admin username" autocomplete="off"></div>
-        <div class="form-row" style="position:relative;">
-          <label>Password</label>
-          <input type="password" id="admin-password-input" placeholder="admin password" onkeydown="if(event.key==='Enter')doAdminLogin()">
-          <span onclick="togglePwdVisibility('admin-password-input',this)" style="position:absolute;right:10px;bottom:9px;cursor:pointer;color:var(--muted);font-size:0.85rem;" id="pwd-eye">👁</span>
-        </div>
-        <div id="admin-login-error" style="color:var(--red);font-size:0.82rem;margin-bottom:0.75rem;display:none;">❌ Wrong username or password</div>
-        <button class="btn" style="width:100%;" onclick="doAdminLogin()">Login as Admin</button>
-        <div style="margin-top:1rem;color:var(--muted);font-size:0.78rem;">Default: username <strong style="color:var(--text);">admin</strong> / password <strong style="color:var(--text);">room1234</strong><br>Change these in the panel after login.</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ADMIN PANEL (hidden until logged in) -->
-  <div id="admin-panel" style="display:none;">
-    <div class="sec-header">
-      <div class="sec-title">⚙️ Admin Panel</div>
-      <button class="btn btn-sm btn-red" onclick="adminLogout()">🚪 Logout</button>
-    </div>
-
-    <!-- CHANGE CREDENTIALS -->
-    <div class="card" style="border-color:rgba(240,165,0,0.25);">
-      <div class="card-title"><div class="dot"></div> 🔑 Change Admin Credentials</div>
-      <div class="grid-2">
-        <div class="form-row"><label>New Username</label><input type="text" id="new-uname" placeholder="New username" autocomplete="off"></div>
-        <div class="form-row" style="position:relative;">
-          <label>New Password</label>
-          <input type="password" id="new-pwd" placeholder="New password" autocomplete="new-password">
-          <span onclick="togglePwdVisibility('new-pwd',this)" style="position:absolute;right:10px;bottom:9px;cursor:pointer;color:var(--muted);font-size:0.85rem;">👁</span>
-        </div>
-      </div>
-      <div class="form-row" style="position:relative;">
-        <label>Confirm New Password</label>
-        <input type="password" id="confirm-pwd" placeholder="Repeat new password" autocomplete="new-password">
-      </div>
-      <button class="btn" onclick="changeAdminCredentials()">Save New Credentials</button>
-    </div>
-
-    <!-- MEMBERS -->
-    <div class="card">
-      <div class="card-title"><div class="dot"></div> 👥 Room Members</div>
-      <div class="form-row" style="display:flex;gap:0.75rem;">
-        <input type="text" id="member-input" placeholder="Add member name">
-        <button class="btn" onclick="addMember()">Add</button>
-      </div>
-      <div id="members-display"></div>
-      <datalist id="members-list"></datalist>
-    </div>
-
-    <!-- SITE NAME CHANGER (admin only) -->
-    <div class="card" style="border-color:rgba(240,165,0,0.25);">
-      <div class="card-title"><div class="dot"></div> 🏷️ Site Name / Branding</div>
-      <div class="form-row">
-        <label>Main Heading (shown in top-left header)</label>
-        <div style="display:flex;gap:0.75rem;align-items:center;">
-          <input type="text" id="site-name-input" placeholder="e.g. RoomBoss or Boys Den 🏠" style="flex:1;">
-          <button class="btn" onclick="saveSiteName()">Save</button>
-        </div>
-        <div style="font-size:0.78rem;color:var(--muted);margin-top:0.4rem;">Current: <strong id="site-name-preview" style="color:var(--accent);"></strong></div>
-      </div>
-      <div class="form-row">
-        <label>Accent Word (highlighted in colour — the second word)</label>
-        <div style="display:flex;gap:0.75rem;align-items:center;">
-          <input type="text" id="site-accent-input" placeholder="e.g. Boss" style="flex:1;">
-          <button class="btn" onclick="saveSiteName()">Save</button>
-        </div>
-        <div style="font-size:0.78rem;color:var(--muted);margin-top:0.3rem;">Leave blank to colour the whole name.</div>
-      </div>
-    </div>
-
-    <!-- INFO MANAGER -->
-    <div class="card">
-      <div class="card-title"><div class="dot"></div> ℹ️ Manage Info Blocks</div>
-      <p style="color:var(--muted);font-size:0.83rem;margin-bottom:1rem;">Add, edit or delete information blocks shown in the Info section.</p>
-      <button class="btn btn-sm btn-green" onclick="showSection('info',document.querySelector('nav button:nth-child(6)'));document.getElementById('info-add-btn').click();" style="margin-bottom:1rem;">+ Add New Info Block</button>
-      <div id="admin-info-manager"></div>
-    </div>
-
-    <!-- DATA MANAGEMENT -->
-    <div class="card" style="border-color:rgba(231,76,60,0.3);">
-      <div class="card-title" style="color:var(--red);"><div class="dot" style="background:var(--red);"></div> ⚠️ Data Management</div>
-      <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.25rem;">Data is stored in the shared Firebase database. Clearing here removes it for <strong style="color:var(--red);">everyone</strong>. These actions cannot be undone.</p>
-      <div style="display:flex;flex-wrap:wrap;gap:0.75rem;">
-        <button class="btn btn-sm btn-red" onclick="confirmClear('purchases','Clear all purchase items?')">🗑 Clear Purchases</button>
-        <button class="btn btn-sm btn-red" onclick="confirmClear('cleaning','Clear all cleaning tasks?')">🗑 Clear Cleaning</button>
-        <button class="btn btn-sm btn-red" onclick="confirmClear('cookMsgs','Clear all cook messages?')">🗑 Clear Cook Msgs</button>
-        <button class="btn btn-sm btn-red" onclick="confirmClear('highlights','Clear all highlights?')">🗑 Clear Highlights</button>
-        <button class="btn btn-sm" style="background:#3a0000;color:var(--red);border:1px solid rgba(231,76,60,0.4);" onclick="confirmClearAll()">💥 Clear ALL Data</button>
-      </div>
-    </div>
-
-  </div><!-- end admin-panel -->
-</div>
-
-</main>
-
-<script type="module">
-import { initializeApp }                        from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-const FIREBASE_CONFIG = {
+html
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script>
+// ═══════════════════════════════════════════
+//  Rashidiya Room Mess — Firebase Config
+// ═══════════════════════════════════════════
+firebase.initializeApp({
   apiKey:            "AIzaSyDnLXqYxp1xHbok_xt4WA4frnzWd-eCz5s",
   authDomain:        "rashidiya-room-mess.firebaseapp.com",
   projectId:         "rashidiya-room-mess",
   storageBucket:     "rashidiya-room-mess.firebasestorage.app",
   messagingSenderId: "982538508627",
   appId:             "1:982538508627:web:5d5f1158f881aa89ec69a6"
-};
-
-const app = initializeApp(FIREBASE_CONFIG);
-const db  = getFirestore(app);
-const DOC = doc(db, 'roomapp', 'shareddata');
+});
+const db  = firebase.firestore();
+const DOC = db.collection('roomapp').doc('shareddata');
 
 // ========== DEFAULTS ==========
 const DEFAULTS = {
-  members:   ['Rahul','Arjun','Vijay','Kiran'],
-  purchases: [],
-  cleaning:  [],
-  menu:      {},
-  cookMsgs:  [],
+  members:     ['Member1','Member2','Member3','Member4'],
+  purchases:   [],
+  cleaning:    [],
+  menu:        {},
+  cookMsgs:    [],
   cookGrocery: [],
-  highlights: [],
-  popup:     {title:'Welcome to Room Manager!', body:"Check today's menu and your assigned duties. Don't forget to mark your tasks as done!"},
-  announcement: '',
-  cleanDone: {},
-  adminUser: 'admin',
-  adminPass: 'room1234',
-  siteName:  'Rashidiya Room Mess',
-  siteAccent:'Room Mess',
+  highlights:  [],
+  popup:       {title:'Welcome to Rashidiya Room Mess!', body:"Check today's menu and your assigned duties!"},
+  announcement:'',
+  cleanDone:   {},
+  adminUser:   'admin',
+  adminPass:   'room1234',
+  siteName:    'Rashidiya Room Mess',
+  siteAccent:  'Room Mess',
   infoBlocks:[
-    {id:1,icon:'📶',title:'WiFi Details',content:'Network: Bachelor_Room_5G\nPassword: room@2024'},
-    {id:2,icon:'💰',title:'Rent & Bills',content:'Rent due: 1st of every month\nElectricity split equally among all members.'},
-    {id:3,icon:'📋',title:'House Rules',content:'1. No guests after 10 PM\n2. Kitchen to be cleaned after cooking\n3. No littering in common areas\n4. Respect quiet hours 11 PM – 7 AM'},
-    {id:4,icon:'🚨',title:'Emergency Contacts',content:'Landlord: +91 XXXXXXXXXX\nPlumber: +91 XXXXXXXXXX\nElectrician: +91 XXXXXXXXXX'}
+    {id:1,icon:'📶',title:'WiFi Details',       content:'Network: \nPassword: '},
+    {id:2,icon:'💰',title:'Rent & Bills',        content:'Rent due: 1st of every month\nElectricity split equally among all members.'},
+    {id:3,icon:'📋',title:'House Rules',         content:'1. No guests after 10 PM\n2. Kitchen to be cleaned after cooking\n3. No littering in common areas\n4. Respect quiet hours 11 PM – 7 AM'},
+    {id:4,icon:'🚨',title:'Emergency Contacts',  content:'Landlord: +91 XXXXXXXXXX\nPlumber: +91 XXXXXXXXXX\nElectrician: +91 XXXXXXXXXX'}
   ]
 };
 
 let data = {};
 let adminLoggedIn = false;
 
-// ── show a loading overlay until first data arrives ──
+// Loading overlay
 document.body.insertAdjacentHTML('afterbegin',
-  `<div id="fb-loading" style="position:fixed;inset:0;background:#0f0f13;z-index:99999;
-     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;">
-    <div style="font-size:2.5rem;">🔄</div>
-    <div style="font-family:'Syne',sans-serif;color:#f0a500;font-size:1.1rem;">Connecting to shared database…</div>
-    <div style="color:#888;font-size:0.85rem;" id="fb-load-msg">Please wait</div>
-  </div>`);
+  '<div id="fb-loading" style="position:fixed;inset:0;background:#0f0f13;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;">' +
+  '<div style="font-size:2.5rem;">🔄</div>' +
+  '<div style="font-family:Syne,sans-serif;color:#f0a500;font-size:1.1rem;">Connecting to Rashidiya Room Mess…</div>' +
+  '<div style="color:#888;font-size:0.85rem;" id="fb-load-msg">Please wait</div>' +
+  '</div>');
 
-// ── save: push entire data object to Firestore ──
-async function save(){
-  try {
-    await setDoc(DOC, data);
-  } catch(e){
-    console.error('Save failed:', e);
-    alert('⚠️ Could not save to database.\n\nCheck your Firebase config keys in the HTML file.');
-  }
+// Save to Firestore
+function save(){
+  DOC.set(data).catch(function(e){
+    console.error('Save error:',e);
+    alert('Could not save. Check internet connection.\n'+e.message);
+  });
 }
 
-// ── real-time listener: whenever ANY user saves, everyone gets updated ──
-onSnapshot(DOC, (snap) => {
-  const loadingEl = document.getElementById('fb-loading');
-  if(snap.exists()){
+// Real-time listener
+var appStarted = false;
+DOC.onSnapshot(function(snap){
+  if(snap.exists){
     data = snap.data();
-    // Fill any missing keys with defaults
-    Object.keys(DEFAULTS).forEach(k=>{ if(data[k]===undefined) data[k]=DEFAULTS[k]; });
+    Object.keys(DEFAULTS).forEach(function(k){ if(data[k]===undefined) data[k]=JSON.parse(JSON.stringify(DEFAULTS[k])); });
   } else {
-    // First time — no doc yet, use defaults and create it
     data = JSON.parse(JSON.stringify(DEFAULTS));
-    setDoc(DOC, data);
+    DOC.set(data);
   }
-  if(loadingEl){ loadingEl.remove(); init(); }
+  var el = document.getElementById('fb-loading');
+  if(el){ el.remove(); }
+  if(!appStarted){ appStarted=true; init(); }
   else { renderAll(); renderSiteName(); }
-}, (err)=>{
-  document.getElementById('fb-load-msg').textContent =
-    '❌ Connection failed. Check Firebase config or internet.';
-  console.error(err);
+}, function(err){
+  var el=document.getElementById('fb-load-msg');
+  if(el) el.innerHTML='❌ Cannot connect: '+err.message;
+  console.error('Firestore error:',err);
 });
 
 // ========== INIT ==========
-const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-const now = new Date();
-const todayDay = days[now.getDay()];
-const todayStr = now.toDateString();
+var days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+var now  = new Date();
+var todayDay = days[now.getDay()];
 
 function init(){
   document.getElementById('live-date').textContent = now.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
-  document.getElementById('today-day').textContent = todayDay;
-  document.getElementById('today-clean-day').textContent = todayDay;
-
-  // Popup
-  if(data.popup.title){
+  document.getElementById('today-day').textContent  = todayDay;
+  var tcd = document.getElementById('today-clean-day'); if(tcd) tcd.textContent = todayDay;
+  if(data.popup && data.popup.title){
     document.getElementById('popup-title').textContent = data.popup.title;
-    document.getElementById('popup-body').textContent = data.popup.body;
+    document.getElementById('popup-body').textContent  = data.popup.body;
   }
-
-  // Announcement
   if(data.announcement){
     document.getElementById('announce-text').textContent = data.announcement;
     document.getElementById('announce-banner').style.display = 'flex';
   }
-
   renderAll();
   renderSiteName();
 }
@@ -807,39 +109,32 @@ function renderAll(){
 
 // ========== SECTION NAV ==========
 function showSection(id, btn){
-  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
-  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(function(s){s.classList.remove('active');});
+  document.querySelectorAll('nav button').forEach(function(b){b.classList.remove('active');});
   document.getElementById('section-'+id).classList.add('active');
   if(btn) btn.classList.add('active');
-  if(id==='admin') renderAdminPanel();
-  if(id==='info') renderInfoBlocks();
+  if(id==='admin')       renderAdminPanel();
+  if(id==='info')        renderInfoBlocks();
   if(id==='noticeboard') renderNoticeboard();
 }
 
 // ========== MEMBERS ==========
 function addMember(){
-  const v = document.getElementById('member-input').value.trim();
-  if(!v) return;
-  data.members.push(v);
-  document.getElementById('member-input').value='';
+  var v=document.getElementById('member-input').value.trim(); if(!v) return;
+  data.members.push(v); document.getElementById('member-input').value='';
   save(); renderMembers(); renderDashboard();
 }
 function removeMember(i){ data.members.splice(i,1); save(); renderMembers(); }
 function renderMembers(){
-  const d = document.getElementById('members-display');
-  const dl = document.getElementById('members-list');
-  d.innerHTML = data.members.map((m,i)=>`
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:0.6rem 0;border-bottom:1px solid var(--border);">
-      <span>${m}</span>
-      <button class="del-btn" onclick="removeMember(${i})">✕</button>
-    </div>`).join('');
-  dl.innerHTML = data.members.map(m=>`<option value="${m}">`).join('');
-  document.getElementById('stat-members').textContent = data.members.length;
+  var d=document.getElementById('members-display'); var dl=document.getElementById('members-list'); if(!d||!dl) return;
+  d.innerHTML=data.members.map(function(m,i){ return '<div style="display:flex;align-items:center;justify-content:space-between;padding:0.6rem 0;border-bottom:1px solid var(--border);"><span>'+m+'</span><button class="del-btn" onclick="removeMember('+i+')">✕</button></div>'; }).join('');
+  dl.innerHTML=data.members.map(function(m){ return '<option value="'+m+'">'; }).join('');
+  var sm=document.getElementById('stat-members'); if(sm) sm.textContent=data.members.length;
 }
 
 // ========== PURCHASE ==========
 function addPurchase(){
-  const item={item:document.getElementById('pur-item').value.trim(),qty:document.getElementById('pur-qty').value.trim(),person:document.getElementById('pur-person').value.trim(),date:document.getElementById('pur-date').value,done:false,id:Date.now()};
+  var item={item:document.getElementById('pur-item').value.trim(),qty:document.getElementById('pur-qty').value.trim(),person:document.getElementById('pur-person').value.trim(),date:document.getElementById('pur-date').value,done:false,id:Date.now()};
   if(!item.item) return alert('Enter item name');
   data.purchases.push(item);
   document.getElementById('pur-item').value=''; document.getElementById('pur-qty').value='';
@@ -847,587 +142,268 @@ function addPurchase(){
   save(); renderPurchase(); renderDashboard();
 }
 function togglePurchase(id){
-  const p = data.purchases.find(x=>x.id===id);
+  var p=data.purchases.find(function(x){return x.id===id;});
   if(p){ p.done=!p.done; save(); renderPurchase(); renderDashboard(); }
 }
-function deletePurchase(id){
-  data.purchases = data.purchases.filter(x=>x.id!==id);
-  save(); renderPurchase(); renderDashboard();
-}
+function deletePurchase(id){ data.purchases=data.purchases.filter(function(x){return x.id!==id;}); save(); renderPurchase(); renderDashboard(); }
 function renderPurchase(){
-  const tbody = document.getElementById('purchase-table-body');
-  if(!data.purchases.length){ tbody.innerHTML='<tr><td colspan="6" style="color:var(--muted);text-align:center;padding:1.5rem;">No items yet. Add one above.</td></tr>'; }
-  else tbody.innerHTML = data.purchases.map(p=>`
-    <tr>
-      <td>${p.item}</td><td>${p.qty||'-'}</td>
-      <td>${p.person||'Unassigned'}</td>
-      <td>${p.date||'-'}</td>
-      <td><span class="badge ${p.done?'badge-green':'badge-yellow'}">${p.done?'Done':'Pending'}</span></td>
-      <td style="display:flex;gap:0.4rem;">
-        <button class="btn btn-sm ${p.done?'btn-red':'btn-green'}" onclick="togglePurchase(${p.id})">${p.done?'Undo':'✓ Done'}</button>
-        <button class="del-btn" onclick="deletePurchase(${p.id})">✕</button>
-      </td>
-    </tr>`).join('');
-
-  // Overview
-  const pending = data.purchases.filter(p=>!p.done).length;
-  const done = data.purchases.filter(p=>p.done).length;
-  document.getElementById('purchase-overview').innerHTML=`
-    <div class="highlight-box red-hl"><div class="highlight-text">🕐 Pending: <strong>${pending}</strong> items</div></div>
-    <div class="highlight-box green-hl"><div class="highlight-text">✅ Completed: <strong>${done}</strong> items</div></div>`;
-  document.getElementById('stat-pending').textContent = pending;
-
-  // By person
-  const byPerson = {};
-  data.purchases.filter(p=>!p.done).forEach(p=>{
-    const name = p.person||'Unassigned';
-    if(!byPerson[name]) byPerson[name]=[];
-    byPerson[name].push(p);
-  });
-  const pbp = document.getElementById('purchase-by-person');
-  if(!Object.keys(byPerson).length){ pbp.innerHTML='<div style="color:var(--muted);font-size:0.88rem;">All items done! 🎉</div>'; return; }
-  pbp.innerHTML = Object.entries(byPerson).map(([name,items])=>`
-    <div class="highlight-box" style="margin-bottom:0.75rem;">
-      <strong style="color:var(--accent)">${name}</strong>
-      <div style="margin-top:0.4rem;">${items.map(i=>`<span class="badge badge-yellow" style="margin:2px;">${i.item}${i.qty?' ('+i.qty+')':''}</span>`).join(' ')}</div>
-    </div>`).join('');
+  var tbody=document.getElementById('purchase-table-body'); if(!tbody) return;
+  if(!data.purchases.length){ tbody.innerHTML='<tr><td colspan="6" style="color:var(--muted);text-align:center;padding:1.5rem;">No items yet.</td></tr>'; }
+  else tbody.innerHTML=data.purchases.map(function(p){ return '<tr><td>'+p.item+'</td><td>'+(p.qty||'-')+'</td><td>'+(p.person||'Unassigned')+'</td><td>'+(p.date||'-')+'</td><td><span class="badge '+(p.done?'badge-green':'badge-yellow')+'">'+(p.done?'Done':'Pending')+'</span></td><td style="display:flex;gap:0.4rem;"><button class="btn btn-sm '+(p.done?'btn-red':'btn-green')+'" onclick="togglePurchase('+p.id+')">'+(p.done?'Undo':'✓ Done')+'</button><button class="del-btn" onclick="deletePurchase('+p.id+')">✕</button></td></tr>'; }).join('');
+  var pending=data.purchases.filter(function(p){return !p.done;}).length;
+  var done=data.purchases.filter(function(p){return p.done;}).length;
+  var po=document.getElementById('purchase-overview');
+  if(po) po.innerHTML='<div class="highlight-box red-hl"><div class="highlight-text">🕐 Pending: <strong>'+pending+'</strong> items</div></div><div class="highlight-box green-hl"><div class="highlight-text">✅ Completed: <strong>'+done+'</strong> items</div></div>';
+  var sp=document.getElementById('stat-pending'); if(sp) sp.textContent=pending;
+  var byPerson={};
+  data.purchases.filter(function(p){return !p.done;}).forEach(function(p){ var n=p.person||'Unassigned'; if(!byPerson[n]) byPerson[n]=[]; byPerson[n].push(p); });
+  var pbp=document.getElementById('purchase-by-person'); if(!pbp) return;
+  var keys=Object.keys(byPerson);
+  if(!keys.length){ pbp.innerHTML='<div style="color:var(--muted);font-size:0.88rem;">All items done! 🎉</div>'; return; }
+  pbp.innerHTML=keys.map(function(name){ return '<div class="highlight-box" style="margin-bottom:0.75rem;"><strong style="color:var(--accent)">'+name+'</strong><div style="margin-top:0.4rem;">'+byPerson[name].map(function(i){ return '<span class="badge badge-yellow" style="margin:2px;">'+i.item+(i.qty?' ('+i.qty+')':'')+'</span>'; }).join(' ')+'</div></div>'; }).join('');
 }
 
 // ========== CLEANING ==========
-function toggleCleanForm(){
-  const f=document.getElementById('clean-add-form');
-  f.style.display=f.style.display==='none'?'block':'none';
-  if(f.style.display==='block') cancelCleanEdit();
-}
+function toggleCleanForm(){ var f=document.getElementById('clean-add-form'); f.style.display=f.style.display==='none'?'block':'none'; if(f.style.display==='block') cancelCleanEdit(); }
 function cancelCleanEdit(){
   document.getElementById('clean-edit-id').value='';
   document.getElementById('clean-form-title').textContent='Add Cleaning Task';
-  document.getElementById('clean-task').value='';
-  document.getElementById('clean-person').value='';
-  document.getElementById('clean-day').value='Daily';
-  document.getElementById('clean-area').value='Kitchen';
-  document.getElementById('clean-date').value='';
-  document.getElementById('clean-notes').value='';
+  document.getElementById('clean-task').value=''; document.getElementById('clean-person').value='';
+  document.getElementById('clean-day').value='Daily'; document.getElementById('clean-area').value='Kitchen';
+  document.getElementById('clean-date').value=''; document.getElementById('clean-notes').value='';
 }
 function editCleaning(id){
-  const c=data.cleaning.find(x=>x.id===id); if(!c) return;
+  var c=data.cleaning.find(function(x){return x.id===id;}); if(!c) return;
   document.getElementById('clean-add-form').style.display='block';
-  document.getElementById('clean-edit-id').value=id;
-  document.getElementById('clean-form-title').textContent='Update Cleaning Task';
-  document.getElementById('clean-task').value=c.task;
-  document.getElementById('clean-person').value=c.person||'';
-  document.getElementById('clean-day').value=c.day;
-  document.getElementById('clean-area').value=c.area;
-  document.getElementById('clean-date').value=c.date||'';
-  document.getElementById('clean-notes').value=c.notes||'';
+  document.getElementById('clean-edit-id').value=id; document.getElementById('clean-form-title').textContent='Update Task';
+  document.getElementById('clean-task').value=c.task; document.getElementById('clean-person').value=c.person||'';
+  document.getElementById('clean-day').value=c.day; document.getElementById('clean-area').value=c.area;
+  document.getElementById('clean-date').value=c.date||''; document.getElementById('clean-notes').value=c.notes||'';
   document.getElementById('clean-add-form').scrollIntoView({behavior:'smooth'});
 }
 function saveCleaningTask(){
-  const editId = document.getElementById('clean-edit-id').value;
-  const task = document.getElementById('clean-task').value.trim();
-  if(!task) return alert('Enter task name');
-  const obj={
-    task,
-    person:document.getElementById('clean-person').value.trim(),
-    day:document.getElementById('clean-day').value,
-    area:document.getElementById('clean-area').value,
-    date:document.getElementById('clean-date').value,
-    notes:document.getElementById('clean-notes').value.trim()
-  };
-  if(editId){
-    const idx=data.cleaning.findIndex(x=>x.id==editId);
-    if(idx>-1){ obj.id=data.cleaning[idx].id; data.cleaning[idx]=obj; }
-  } else {
-    obj.id=Date.now();
-    data.cleaning.push(obj);
-  }
-  document.getElementById('clean-add-form').style.display='none';
-  cancelCleanEdit();
-  save(); renderCleaning(); renderDashboard();
+  var editId=document.getElementById('clean-edit-id').value; var task=document.getElementById('clean-task').value.trim(); if(!task) return alert('Enter task name');
+  var obj={task:task,person:document.getElementById('clean-person').value.trim(),day:document.getElementById('clean-day').value,area:document.getElementById('clean-area').value,date:document.getElementById('clean-date').value,notes:document.getElementById('clean-notes').value.trim()};
+  if(editId){ var idx=data.cleaning.findIndex(function(x){return x.id==editId;}); if(idx>-1){obj.id=data.cleaning[idx].id;data.cleaning[idx]=obj;} }
+  else { obj.id=Date.now(); data.cleaning.push(obj); }
+  document.getElementById('clean-add-form').style.display='none'; cancelCleanEdit(); save(); renderCleaning(); renderDashboard();
 }
-function deleteCleaning(id){ if(!confirm('Delete this task?')) return; data.cleaning=data.cleaning.filter(x=>x.id!==id); save(); renderCleaning(); }
+function deleteCleaning(id){ if(!confirm('Delete this task?')) return; data.cleaning=data.cleaning.filter(function(x){return x.id!==id;}); save(); renderCleaning(); }
 function toggleCleanDone(id){
-  const key = id+'_'+now.toLocaleDateString();
-  if(!data.cleanDone[key]) {
-    data.cleanDone[key]={done:true,time:now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})};
-  } else {
-    delete data.cleanDone[key];
-  }
+  var key=id+'_'+now.toLocaleDateString();
+  if(!data.cleanDone[key]){ data.cleanDone[key]={done:true,time:now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}; }
+  else { delete data.cleanDone[key]; }
   save(); renderCleaning(); renderDashboard();
 }
 function markAllDoneToday(){
-  const today = data.cleaning.filter(c=>c.day==='Daily'||c.day===todayDay||c.day==='Weekly'||(c.date&&c.date===now.toISOString().split('T')[0]));
-  today.forEach(c=>{
-    const key=c.id+'_'+now.toLocaleDateString();
-    if(!data.cleanDone[key]) data.cleanDone[key]={done:true,time:now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})};
-  });
-  save(); renderCleaning(); renderDashboard();
+  var todayISO=now.toISOString().split('T')[0];
+  data.cleaning.filter(function(c){return c.day==='Daily'||c.day===todayDay||c.day==='Weekly'||(c.date&&c.date===todayISO);}).forEach(function(c){
+    var key=c.id+'_'+now.toLocaleDateString(); if(!data.cleanDone[key]) data.cleanDone[key]={done:true,time:now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})};
+  }); save(); renderCleaning(); renderDashboard();
 }
 function renderCleaning(){
-  const todayISO = now.toISOString().split('T')[0];
-  const today = data.cleaning.filter(c=>
-    c.day==='Daily'||c.day===todayDay||c.day==='Weekly'||(c.date&&c.date===todayISO)
-  );
-  const todayList = document.getElementById('today-cleaning-list');
-  if(!today.length){
-    todayList.innerHTML='<div style="color:var(--muted);font-size:0.88rem;">No cleaning tasks for today.</div>';
-  } else {
-    const allDone = today.every(c=>data.cleanDone[c.id+'_'+now.toLocaleDateString()]);
-    todayList.innerHTML=`
-      <div style="display:flex;justify-content:flex-end;margin-bottom:0.75rem;">
-        <button class="btn btn-sm btn-green" onclick="markAllDoneToday()">✓ Mark All Done</button>
-      </div>`+
-      today.map(c=>{
-        const key=c.id+'_'+now.toLocaleDateString();
-        const doneObj=data.cleanDone[key];
-        const done=doneObj&&doneObj.done;
-        return `<div class="check-item ${done?'done':''}">
-          <input type="checkbox" ${done?'checked':''} onchange="toggleCleanDone(${c.id})">
-          <div style="flex:1;">
-            <span><strong>${c.task}</strong> — <span class="badge badge-blue" style="font-size:0.72rem;">${c.area}</span></span>
-            <div style="font-size:0.8rem;color:var(--muted);margin-top:2px;">
-              👤 ${c.person||'Anyone'}
-              ${c.notes?` &nbsp;📝 ${c.notes}`:''}
-              ${done&&doneObj.time?` &nbsp;<span style="color:var(--green)">✓ Done at ${doneObj.time}</span>`:''}
-            </div>
-          </div>
-        </div>`;
+  var todayISO=now.toISOString().split('T')[0];
+  var today=data.cleaning.filter(function(c){return c.day==='Daily'||c.day===todayDay||c.day==='Weekly'||(c.date&&c.date===todayISO);});
+  var todayList=document.getElementById('today-cleaning-list'); if(!todayList) return;
+  if(!today.length){ todayList.innerHTML='<div style="color:var(--muted);font-size:0.88rem;">No cleaning tasks for today.</div>'; }
+  else{
+    todayList.innerHTML='<div style="display:flex;justify-content:flex-end;margin-bottom:0.75rem;"><button class="btn btn-sm btn-green" onclick="markAllDoneToday()">✓ Mark All Done</button></div>'+
+      today.map(function(c){ var key=c.id+'_'+now.toLocaleDateString(); var doneObj=data.cleanDone[key]; var done=doneObj&&doneObj.done;
+        return '<div class="check-item '+(done?'done':'')+'"><input type="checkbox" '+(done?'checked':'')+' onchange="toggleCleanDone('+c.id+')"><div style="flex:1;"><span><strong>'+c.task+'</strong> — <span class="badge badge-blue" style="font-size:0.72rem;">'+c.area+'</span></span><div style="font-size:0.8rem;color:var(--muted);margin-top:2px;">👤 '+(c.person||'Anyone')+(c.notes?' 📝 '+c.notes:'')+(done&&doneObj.time?' <span style="color:var(--green)">✓ Done @ '+doneObj.time+'</span>':'')+'</div></div></div>';
       }).join('');
-    if(allDone) todayList.innerHTML += `<div style="text-align:center;padding:1rem;color:var(--green);font-family:'Syne',sans-serif;font-size:1rem;">🎉 All tasks done for today!</div>`;
+    var allDone=today.every(function(c){return data.cleanDone[c.id+'_'+now.toLocaleDateString()];});
+    if(allDone) todayList.innerHTML+='<div style="text-align:center;padding:1rem;color:var(--green);font-family:Syne,sans-serif;">🎉 All tasks done for today!</div>';
   }
-
-  // Upcoming specific date tasks
-  const upcoming = data.cleaning.filter(c=>c.date&&c.date>todayISO).sort((a,b)=>a.date>b.date?1:-1);
-  const upEl=document.getElementById('upcoming-cleaning-list');
-  if(!upcoming.length) upEl.innerHTML='<div style="color:var(--muted);font-size:0.88rem;">No upcoming scheduled tasks.</div>';
-  else upEl.innerHTML=upcoming.map(c=>{
-    const d=new Date(c.date); const diff=Math.ceil((d-now)/(1000*60*60*24));
-    return `<div class="highlight-box" style="margin-bottom:0.6rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">
-      <div>
-        <strong>${c.task}</strong> — ${c.area}
-        <div style="font-size:0.8rem;color:var(--muted);margin-top:2px;">👤 ${c.person||'Anyone'} &nbsp; 📅 ${c.date} <span style="color:var(--accent)">(${diff} day${diff!==1?'s':''} away)</span></div>
-      </div>
-      <button class="btn btn-sm" onclick="editCleaning(${c.id})">✏️ Edit</button>
-    </div>`;
-  }).join('');
-
-  // Full table
-  const tbody = document.getElementById('cleaning-table-body');
-  if(!data.cleaning.length){ tbody.innerHTML='<tr><td colspan="8" style="color:var(--muted);text-align:center;padding:1.5rem;">No tasks yet. Add some above.</td></tr>'; }
-  else tbody.innerHTML = data.cleaning.map(c=>{
-    const key=c.id+'_'+now.toLocaleDateString();
-    const doneObj=data.cleanDone[key]; const done=doneObj&&doneObj.done;
-    const isToday = c.day==='Daily'||c.day===todayDay||c.day==='Weekly'||(c.date&&c.date===todayISO);
-    return `<tr style="${isToday?'background:rgba(240,165,0,0.04);':''}">
-      <td><strong>${c.task}</strong></td>
-      <td>${c.area}</td>
-      <td>${c.person||'Anyone'}</td>
-      <td><span class="badge badge-blue">${c.day}</span></td>
-      <td>${c.date?`<span class="badge badge-purple">${c.date}</span>`:'<span style="color:var(--muted)">—</span>'}</td>
-      <td style="font-size:0.82rem;color:var(--muted);">${c.notes||'—'}</td>
-      <td>
-        <span class="badge ${done?'badge-green':'badge-yellow'}" style="cursor:pointer;" onclick="toggleCleanDone(${c.id})" title="Click to toggle">
-          ${done?`✓ Done ${doneObj.time?'@ '+doneObj.time:''}`:'Pending'}
-        </span>
-      </td>
-      <td style="display:flex;gap:0.4rem;align-items:center;">
-        <button class="btn btn-sm btn-blue" onclick="editCleaning(${c.id})">✏️</button>
-        <button class="del-btn" onclick="deleteCleaning(${c.id})">✕</button>
-      </td>
-    </tr>`;
-  }).join('');
-
-  // History last 7 days
-  const histEl=document.getElementById('cleaning-history');
-  const hist=[];
-  for(let i=0;i<7;i++){
-    const d=new Date(now); d.setDate(d.getDate()-i);
-    const dateStr=d.toLocaleDateString();
-    const label=i===0?'Today':i===1?'Yesterday':d.toLocaleDateString('en-IN',{weekday:'short',day:'2-digit',month:'short'});
-    const doneTasks=Object.entries(data.cleanDone).filter(([k,v])=>v&&v.done&&k.endsWith('_'+dateStr));
-    hist.push({label,count:doneTasks.length,tasks:doneTasks.map(([k])=>{
-      const cid=parseInt(k.split('_')[0]); const c=data.cleaning.find(x=>x.id===cid);
-      return c?c.task:'Unknown';
-    })});
-  }
-  histEl.innerHTML=hist.map(h=>`
-    <div style="display:flex;align-items:center;gap:1rem;padding:0.6rem 0;border-bottom:1px solid var(--border);">
-      <div style="min-width:90px;font-size:0.85rem;color:var(--muted);">${h.label}</div>
-      <div style="flex:1;">
-        ${h.count?h.tasks.map(t=>`<span class="badge badge-green" style="margin:2px;">${t}</span>`).join(' '):'<span style="color:var(--muted);font-size:0.82rem;">No tasks completed</span>'}
-      </div>
-      <div style="font-family:\'Syne\',sans-serif;font-weight:700;color:${h.count?'var(--green)':'var(--muted)'};">${h.count}</div>
-    </div>`).join('');
-
-  // Done count for stats
-  const doneCount=Object.entries(data.cleanDone).filter(([k,v])=>v&&v.done&&k.includes(now.toLocaleDateString())).length;
-  document.getElementById('stat-tasks').textContent=doneCount;
+  var upcoming=data.cleaning.filter(function(c){return c.date&&c.date>todayISO;}).sort(function(a,b){return a.date>b.date?1:-1;});
+  var upEl=document.getElementById('upcoming-cleaning-list');
+  if(upEl){ if(!upcoming.length) upEl.innerHTML='<div style="color:var(--muted);font-size:0.88rem;">No upcoming scheduled tasks.</div>';
+    else upEl.innerHTML=upcoming.map(function(c){ var d=new Date(c.date); var diff=Math.ceil((d-now)/(1000*60*60*24));
+      return '<div class="highlight-box" style="margin-bottom:0.6rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;"><div><strong>'+c.task+'</strong> — '+c.area+'<div style="font-size:0.8rem;color:var(--muted);margin-top:2px;">👤 '+(c.person||'Anyone')+' 📅 '+c.date+' <span style="color:var(--accent)">('+diff+' day'+(diff!==1?'s':'')+' away)</span></div></div><button class="btn btn-sm" onclick="editCleaning('+c.id+')">✏️ Edit</button></div>';}).join('');}
+  var tbody=document.getElementById('cleaning-table-body');
+  if(tbody){ if(!data.cleaning.length){ tbody.innerHTML='<tr><td colspan="8" style="color:var(--muted);text-align:center;padding:1.5rem;">No tasks yet.</td></tr>'; }
+    else tbody.innerHTML=data.cleaning.map(function(c){ var key=c.id+'_'+now.toLocaleDateString(); var doneObj=data.cleanDone[key]; var done=doneObj&&doneObj.done; var isToday=c.day==='Daily'||c.day===todayDay||c.day==='Weekly'||(c.date&&c.date===todayISO);
+      return '<tr style="'+(isToday?'background:rgba(240,165,0,0.04);':'')+'"><td><strong>'+c.task+'</strong></td><td>'+c.area+'</td><td>'+(c.person||'Anyone')+'</td><td><span class="badge badge-blue">'+c.day+'</span></td><td>'+(c.date?'<span class="badge badge-purple">'+c.date+'</span>':'<span style="color:var(--muted)">—</span>')+'</td><td style="font-size:0.82rem;color:var(--muted);">'+(c.notes||'—')+'</td><td><span class="badge '+(done?'badge-green':'badge-yellow')+'" style="cursor:pointer;" onclick="toggleCleanDone('+c.id+')">'+(done?'✓ Done'+(doneObj.time?' @ '+doneObj.time:''):'Pending')+'</span></td><td style="display:flex;gap:0.4rem;"><button class="btn btn-sm btn-blue" onclick="editCleaning('+c.id+')">✏️</button><button class="del-btn" onclick="deleteCleaning('+c.id+')">✕</button></td></tr>';}).join('');}
+  var histEl=document.getElementById('cleaning-history');
+  if(histEl){ var hist=[]; for(var i=0;i<7;i++){ var d=new Date(now); d.setDate(d.getDate()-i); var dateStr=d.toLocaleDateString(); var label=i===0?'Today':i===1?'Yesterday':d.toLocaleDateString('en-IN',{weekday:'short',day:'2-digit',month:'short'}); var doneTasks=Object.entries(data.cleanDone).filter(function(e){return e[1]&&e[1].done&&e[0].endsWith('_'+dateStr);}); hist.push({label:label,count:doneTasks.length,tasks:doneTasks.map(function(e){ var cid=parseInt(e[0].split('_')[0]); var c=data.cleaning.find(function(x){return x.id===cid;}); return c?c.task:'Unknown'; })}); }
+    histEl.innerHTML=hist.map(function(h){ return '<div style="display:flex;align-items:center;gap:1rem;padding:0.6rem 0;border-bottom:1px solid var(--border);"><div style="min-width:90px;font-size:0.85rem;color:var(--muted);">'+h.label+'</div><div style="flex:1;">'+(h.count?h.tasks.map(function(t){return '<span class="badge badge-green" style="margin:2px;">'+t+'</span>';}).join(' '):'<span style="color:var(--muted);font-size:0.82rem;">No tasks completed</span>')+'</div><div style="font-family:Syne,sans-serif;font-weight:700;color:'+(h.count?'var(--green)':'var(--muted)')+';">'+h.count+'</div></div>'; }).join('');}
+  var doneCount=Object.entries(data.cleanDone).filter(function(e){return e[1]&&e[1].done&&e[0].includes(now.toLocaleDateString());}).length;
+  var st=document.getElementById('stat-tasks'); if(st) st.textContent=doneCount;
 }
 
 // ========== MENU ==========
-const defaultMenu = {
-  Monday:{main:'Rice & Dal',desc:'Simple weekday meal',sides:['Sabzi','Pickle']},
-  Tuesday:{main:'Chapati & Sabzi',desc:'Freshly made rotis',sides:['Dal','Salad']},
-  Wednesday:{main:'Biryani',desc:'Midweek special!',sides:['Raita','Papad']},
-  Thursday:{main:'Rice & Sambar',desc:'South Indian style',sides:['Chutney','Pickle']},
-  Friday:{main:'Pulao & Curry',desc:'Light Friday fare',sides:['Salad','Curd']},
-  Saturday:{main:'Special Thali',desc:'Weekend special 🎉',sides:['Dal','Sabzi','Sweet','Papad']},
-  Sunday:{main:'Rest / Self Cook',desc:'Cook your favourite!',sides:['Bread','Eggs']}
-};
+var defaultMenu={Monday:{main:'Rice & Dal',desc:'Simple weekday meal',sides:['Sabzi','Pickle']},Tuesday:{main:'Chapati & Sabzi',desc:'Freshly made rotis',sides:['Dal','Salad']},Wednesday:{main:'Biryani',desc:'Midweek special!',sides:['Raita','Papad']},Thursday:{main:'Rice & Sambar',desc:'South Indian style',sides:['Chutney','Pickle']},Friday:{main:'Pulao & Curry',desc:'Light Friday fare',sides:['Salad','Curd']},Saturday:{main:'Special Thali',desc:'Weekend special 🎉',sides:['Dal','Sabzi','Sweet','Papad']},Sunday:{main:'Rest / Self Cook',desc:'Cook your favourite!',sides:['Bread','Eggs']}};
 function saveMenu(){
-  const day = document.getElementById('menu-day').value;
-  const main = document.getElementById('menu-main-input').value.trim();
-  if(!main) return alert('Enter main dish');
-  data.menu[day]={main,desc:document.getElementById('menu-desc-input').value.trim(),sides:document.getElementById('menu-sides-input').value.split(',').map(s=>s.trim()).filter(Boolean)};
+  var day=document.getElementById('menu-day').value; var main=document.getElementById('menu-main-input').value.trim(); if(!main) return alert('Enter main dish');
+  data.menu[day]={main:main,desc:document.getElementById('menu-desc-input').value.trim(),sides:document.getElementById('menu-sides-input').value.split(',').map(function(s){return s.trim();}).filter(Boolean)};
   document.getElementById('menu-main-input').value=''; document.getElementById('menu-desc-input').value=''; document.getElementById('menu-sides-input').value='';
   save(); renderMenu(); renderDashboard();
 }
 function renderMenu(){
-  const container = document.getElementById('menu-weekly-display');
-  container.innerHTML = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map(d=>{
-    const m = data.menu[d] || defaultMenu[d];
-    const isToday = d===todayDay;
-    return `<div class="card" style="${isToday?'border-color:rgba(240,165,0,0.4);':''}">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;">
-        <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:1rem;">${d} ${isToday?'<span class="today-badge" style="font-size:0.7rem;">TODAY</span>':''}</div>
-      </div>
-      <div style="font-size:1.1rem;font-weight:500;margin-bottom:0.3rem;">${m.main}</div>
-      <div style="color:var(--muted);font-size:0.83rem;margin-bottom:0.7rem;">${m.desc||''}</div>
-      <div>${(m.sides||[]).map(s=>`<span class="menu-item-tag">${s}</span>`).join(' ')}</div>
-    </div>`;
-  }).join('');
+  var container=document.getElementById('menu-weekly-display'); if(!container) return;
+  container.innerHTML=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map(function(d){ var m=data.menu[d]||defaultMenu[d]; var isToday=d===todayDay;
+    return '<div class="card" style="'+(isToday?'border-color:rgba(240,165,0,0.4);':'')+'"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;"><div style="font-family:Syne,sans-serif;font-weight:700;font-size:1rem;">'+d+' '+(isToday?'<span class="today-badge" style="font-size:0.7rem;">TODAY</span>':'')+'</div></div><div style="font-size:1.1rem;font-weight:500;margin-bottom:0.3rem;">'+m.main+'</div><div style="color:var(--muted);font-size:0.83rem;margin-bottom:0.7rem;">'+(m.desc||'')+'</div><div>'+(m.sides||[]).map(function(s){return '<span class="menu-item-tag">'+s+'</span>';}).join(' ')+'</div></div>';}).join('');
 }
 
-// ========== COOK MESSAGES ==========
+// ========== COOK ==========
 function postCookMessage(){
-  const name=document.getElementById('cook-name').value.trim();
-  const msg=document.getElementById('cook-msg-input').value.trim();
-  if(!name||!msg) return alert('Enter name and message');
-  data.cookMsgs.unshift({name,msg,time:now.toLocaleString('en-IN'),id:Date.now()});
+  var name=document.getElementById('cook-name').value.trim(); var msg=document.getElementById('cook-msg-input').value.trim(); if(!name||!msg) return alert('Enter name and message');
+  data.cookMsgs.unshift({name:name,msg:msg,time:now.toLocaleString('en-IN'),id:Date.now()});
   document.getElementById('cook-name').value=''; document.getElementById('cook-msg-input').value='';
   save(); renderCookMsgs(); renderDashboard();
 }
-function deleteCookMsg(id){ data.cookMsgs=data.cookMsgs.filter(x=>x.id!==id); save(); renderCookMsgs(); renderDashboard(); }
+function deleteCookMsg(id){ data.cookMsgs=data.cookMsgs.filter(function(x){return x.id!==id;}); save(); renderCookMsgs(); renderDashboard(); }
 function renderCookMsgs(){
-  const el=document.getElementById('cook-messages-list');
+  var el=document.getElementById('cook-messages-list'); if(!el) return;
   if(!data.cookMsgs.length){ el.innerHTML='<div style="color:var(--muted);font-size:0.88rem;">No messages yet.</div>'; return; }
-  el.innerHTML=data.cookMsgs.map(m=>`
-    <div class="cook-msg">
-      <div class="cook-msg-header">
-        <div class="cook-avatar">${m.name[0]}</div>
-        <div><div class="cook-msg-name">${m.name}</div><div class="cook-msg-time">${m.time}</div></div>
-        <button class="del-btn" style="margin-left:auto;" onclick="deleteCookMsg(${m.id})">✕</button>
-      </div>
-      <div class="cook-msg-body">${m.msg}</div>
-    </div>`).join('');
+  el.innerHTML=data.cookMsgs.map(function(m){ return '<div class="cook-msg"><div class="cook-msg-header"><div class="cook-avatar">'+m.name[0]+'</div><div><div class="cook-msg-name">'+m.name+'</div><div class="cook-msg-time">'+m.time+'</div></div><button class="del-btn" style="margin-left:auto;" onclick="deleteCookMsg('+m.id+')">✕</button></div><div class="cook-msg-body">'+m.msg+'</div></div>'; }).join('');
 }
 function addCookGrocery(){
-  const name=document.getElementById('cook-req-name').value.trim();
-  const items=document.getElementById('cook-req-items').value.trim();
-  const date=document.getElementById('cook-req-date').value;
+  var name=document.getElementById('cook-req-name').value.trim(); var items=document.getElementById('cook-req-items').value.trim(); var date=document.getElementById('cook-req-date').value;
   if(!name||!items) return alert('Fill cook name and items');
-  data.cookGrocery.unshift({name,items,date,id:Date.now()});
+  data.cookGrocery.unshift({name:name,items:items,date:date,id:Date.now()});
   document.getElementById('cook-req-name').value=''; document.getElementById('cook-req-items').value=''; document.getElementById('cook-req-date').value='';
   save(); renderCookGrocery();
 }
-function deleteCookGrocery(id){ data.cookGrocery=data.cookGrocery.filter(x=>x.id!==id); save(); renderCookGrocery(); }
+function deleteCookGrocery(id){ data.cookGrocery=data.cookGrocery.filter(function(x){return x.id!==id;}); save(); renderCookGrocery(); }
 function renderCookGrocery(){
-  const el=document.getElementById('cook-grocery-list');
+  var el=document.getElementById('cook-grocery-list'); if(!el) return;
   if(!data.cookGrocery.length){ el.innerHTML='<div style="color:var(--muted);font-size:0.88rem;">No requests yet.</div>'; return; }
-  el.innerHTML=data.cookGrocery.map(g=>`
-    <div class="highlight-box" style="margin-bottom:0.75rem;">
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <strong style="color:var(--accent)">${g.name}</strong>
-        <div style="display:flex;align-items:center;gap:0.5rem;">
-          ${g.date?`<span style="font-size:0.8rem;color:var(--muted);">By: ${g.date}</span>`:''}
-          <button class="del-btn" onclick="deleteCookGrocery(${g.id})">✕</button>
-        </div>
-      </div>
-      <div style="margin-top:0.4rem;font-size:0.88rem;white-space:pre-line;">${g.items}</div>
-    </div>`).join('');
+  el.innerHTML=data.cookGrocery.map(function(g){ return '<div class="highlight-box" style="margin-bottom:0.75rem;"><div style="display:flex;justify-content:space-between;align-items:center;"><strong style="color:var(--accent)">'+g.name+'</strong><div style="display:flex;align-items:center;gap:0.5rem;">'+(g.date?'<span style="font-size:0.8rem;color:var(--muted);">By: '+g.date+'</span>':'')+'<button class="del-btn" onclick="deleteCookGrocery('+g.id+')">✕</button></div></div><div style="margin-top:0.4rem;font-size:0.88rem;white-space:pre-line;">'+g.items+'</div></div>'; }).join('');
 }
 
 // ========== HIGHLIGHTS ==========
 function addHighlight(){
-  const text=document.getElementById('hl-text').value.trim();
-  const type=document.getElementById('hl-type').value;
-  if(!text) return;
-  data.highlights.push({text,type,id:Date.now()});
-  document.getElementById('hl-text').value='';
-  save(); renderHighlights(); renderNoticeboard(); renderAdminHighlightsList();
+  var text=document.getElementById('hl-text').value.trim(); var type=document.getElementById('hl-type').value; if(!text) return;
+  data.highlights.push({text:text,type:type,id:Date.now()}); document.getElementById('hl-text').value='';
+  save(); renderHighlights(); renderNoticeboard();
 }
-function deleteHighlight(id){ data.highlights=data.highlights.filter(x=>x.id!==id); save(); renderHighlights(); renderNoticeboard(); renderAdminHighlightsList(); }
+function deleteHighlight(id){ data.highlights=data.highlights.filter(function(x){return x.id!==id;}); save(); renderHighlights(); renderNoticeboard(); }
 function renderHighlights(){
-  const el=document.getElementById('dash-highlights');
-  if(!el) return;
-  const typeClass={yellow:'highlight-box',red:'highlight-box red-hl',green:'highlight-box green-hl'};
-  const defaults=`
-    <div class="highlight-box red-hl"><div class="highlight-text">🛒 Vegetables running low — check purchase list</div></div>
-    <div class="highlight-box green-hl"><div class="highlight-text">✅ Kitchen cleaned yesterday</div></div>
-    <div class="highlight-box"><div class="highlight-text">💡 Save electricity, switch off lights when leaving</div></div>`;
-  if(!data.highlights.length){ el.innerHTML=defaults; return; }
-  el.innerHTML=data.highlights.map(h=>`
-    <div class="${typeClass[h.type]||'highlight-box'}" style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:0.75rem;">
-      <div class="highlight-text">${h.text}</div>
-    </div>`).join('');
-}
-function renderAdminHighlightsList(){
-  const el=document.getElementById('admin-highlights-list'); if(!el) return;
-  if(!data.highlights.length){ el.innerHTML=''; return; }
-  const typeClass={yellow:'highlight-box',red:'highlight-box red-hl',green:'highlight-box green-hl'};
-  el.innerHTML=data.highlights.map(h=>`
-    <div class="${typeClass[h.type]||'highlight-box'}" style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:0.5rem;">
-      <div class="highlight-text">${h.text}</div>
-      <button class="del-btn" onclick="deleteHighlight(${h.id})">✕</button>
-    </div>`).join('');
+  var el=document.getElementById('dash-highlights'); if(!el) return;
+  var tc={yellow:'highlight-box',red:'highlight-box red-hl',green:'highlight-box green-hl'};
+  if(!data.highlights.length){ el.innerHTML='<div class="highlight-box red-hl"><div class="highlight-text">🛒 Vegetables running low</div></div><div class="highlight-box green-hl"><div class="highlight-text">✅ Kitchen cleaned yesterday</div></div><div class="highlight-box"><div class="highlight-text">💡 Save electricity!</div></div>'; return; }
+  el.innerHTML=data.highlights.map(function(h){ return '<div class="'+(tc[h.type]||'highlight-box')+'" style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:0.75rem;"><div class="highlight-text">'+h.text+'</div></div>'; }).join('');
 }
 function renderNoticeboard(){
-  // Current announcement display
-  const ca=document.getElementById('nb-current-announce');
-  if(ca){
-    if(data.announcement){
-      ca.innerHTML=`<div class="announce-banner" style="display:flex;"><div class="announce-icon">📣</div><div class="announce-text"><strong>Current banner:</strong> ${data.announcement}</div></div>`;
-    } else {
-      ca.innerHTML=`<div style="color:var(--muted);font-size:0.83rem;">No active announcement.</div>`;
-    }
-  }
-  // Highlights list with delete
-  const hl=document.getElementById('nb-highlights-list'); if(!hl) return;
+  var ca=document.getElementById('nb-current-announce');
+  if(ca) ca.innerHTML=data.announcement?'<div class="announce-banner" style="display:flex;"><div class="announce-icon">📣</div><div class="announce-text"><strong>Current banner:</strong> '+data.announcement+'</div></div>':'<div style="color:var(--muted);font-size:0.83rem;">No active announcement.</div>';
+  var hl=document.getElementById('nb-highlights-list'); if(!hl) return;
+  var tc={yellow:'highlight-box',red:'highlight-box red-hl',green:'highlight-box green-hl'};
   if(!data.highlights.length){ hl.innerHTML='<div style="color:var(--muted);font-size:0.85rem;">No highlights yet.</div>'; return; }
-  const typeClass={yellow:'highlight-box',red:'highlight-box red-hl',green:'highlight-box green-hl'};
-  hl.innerHTML=`<div style="font-size:0.82rem;color:var(--muted);margin-bottom:0.6rem;">Current highlights (click ✕ to remove):</div>`+
-    data.highlights.map(h=>`
-      <div class="${typeClass[h.type]||'highlight-box'}" style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:0.5rem;">
-        <div class="highlight-text">${h.text}</div>
-        <button class="del-btn" onclick="deleteHighlight(${h.id})">✕</button>
-      </div>`).join('');
+  hl.innerHTML='<div style="font-size:0.82rem;color:var(--muted);margin-bottom:0.6rem;">Current highlights:</div>'+
+    data.highlights.map(function(h){ return '<div class="'+(tc[h.type]||'highlight-box')+'" style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:0.5rem;"><div class="highlight-text">'+h.text+'</div><button class="del-btn" onclick="deleteHighlight('+h.id+')">✕</button></div>'; }).join('');
 }
 
 // ========== SITE NAME ==========
 function saveSiteName(){
-  const name=document.getElementById('site-name-input').value.trim();
-  const accent=document.getElementById('site-accent-input').value.trim();
-  if(!name) return alert('Enter a site name');
-  data.siteName=name; data.siteAccent=accent;
-  save(); renderSiteName();
-  document.getElementById('site-name-input').value='';
-  document.getElementById('site-accent-input').value='';
+  var name=document.getElementById('site-name-input').value.trim(); var accent=document.getElementById('site-accent-input').value.trim(); if(!name) return alert('Enter a site name');
+  data.siteName=name; data.siteAccent=accent; save(); renderSiteName();
+  document.getElementById('site-name-input').value=''; document.getElementById('site-accent-input').value='';
 }
 function renderSiteName(){
-  const logo=document.getElementById('site-logo'); if(!logo) return;
-  const name=data.siteName||'RoomBoss';
-  const accent=data.siteAccent||'';
-  if(accent && name.includes(accent)){
-    const parts=name.split(accent);
-    logo.innerHTML=`🏠 ${parts[0]}<span>${accent}</span>${parts[1]||''}`;
-  } else {
-    logo.innerHTML=`🏠 <span>${name}</span>`;
-  }
-  // update preview in admin panel
-  const preview=document.getElementById('site-name-preview');
-  if(preview) preview.textContent=name;
+  var logo=document.getElementById('site-logo'); if(!logo) return;
+  var name=data.siteName||'RoomBoss'; var accent=data.siteAccent||'';
+  if(accent&&name.includes(accent)){ var parts=name.split(accent); logo.innerHTML='🏠 '+parts[0]+'<span>'+accent+'</span>'+(parts[1]||''); }
+  else { logo.innerHTML='🏠 <span>'+name+'</span>'; }
+  var preview=document.getElementById('site-name-preview'); if(preview) preview.textContent=name;
   document.title=name+' — Room Manager';
 }
 
-// ========== INFO BLOCKS (admin editable) ==========
-const defaultInfoIcons = ['📶','💰','📋','🚨','📌','🏠','📞','💡','🔑','🧾'];
-function toggleInfoForm(){
-  const f=document.getElementById('info-add-form');
-  f.style.display=f.style.display==='none'?'block':'none';
-  if(f.style.display==='block') cancelInfoEdit();
-}
-function cancelInfoEdit(){
-  document.getElementById('info-edit-id').value='';
-  document.getElementById('info-form-label').textContent='Add Information';
-  document.getElementById('info-title-input').value='';
-  document.getElementById('info-content-input').value='';
-  document.getElementById('info-add-form').style.display='none';
-}
+// ========== INFO BLOCKS ==========
+function toggleInfoForm(){ var f=document.getElementById('info-add-form'); f.style.display=f.style.display==='none'?'block':'none'; if(f.style.display==='block') cancelInfoEdit(); }
+function cancelInfoEdit(){ document.getElementById('info-edit-id').value=''; document.getElementById('info-form-label').textContent='Add Information'; document.getElementById('info-title-input').value=''; document.getElementById('info-content-input').value=''; document.getElementById('info-add-form').style.display='none'; }
 function editInfoBlock(id){
-  const block=data.infoBlocks.find(x=>x.id===id); if(!block) return;
-  document.getElementById('info-add-form').style.display='block';
-  document.getElementById('info-edit-id').value=id;
-  document.getElementById('info-form-label').textContent='Edit Info Block';
-  document.getElementById('info-title-input').value=block.title;
-  document.getElementById('info-content-input').value=block.content;
+  var block=data.infoBlocks.find(function(x){return x.id===id;}); if(!block) return;
+  document.getElementById('info-add-form').style.display='block'; document.getElementById('info-edit-id').value=id;
+  document.getElementById('info-form-label').textContent='Edit Info Block'; document.getElementById('info-title-input').value=block.title; document.getElementById('info-content-input').value=block.content;
   document.getElementById('info-add-form').scrollIntoView({behavior:'smooth'});
 }
 function saveInfo(){
-  const editId=document.getElementById('info-edit-id').value;
-  const title=document.getElementById('info-title-input').value.trim();
-  const content=document.getElementById('info-content-input').value.trim();
+  var editId=document.getElementById('info-edit-id').value; var title=document.getElementById('info-title-input').value.trim(); var content=document.getElementById('info-content-input').value.trim();
   if(!title||!content) return alert('Fill both fields');
-  if(editId){
-    const idx=data.infoBlocks.findIndex(x=>x.id==editId);
-    if(idx>-1){ data.infoBlocks[idx].title=title; data.infoBlocks[idx].content=content; }
-  } else {
-    data.infoBlocks.push({id:Date.now(),icon:'📌',title,content});
-  }
+  if(editId){ var idx=data.infoBlocks.findIndex(function(x){return x.id==editId;}); if(idx>-1){data.infoBlocks[idx].title=title;data.infoBlocks[idx].content=content;} }
+  else { data.infoBlocks.push({id:Date.now(),icon:'📌',title:title,content:content}); }
   cancelInfoEdit(); save(); renderInfoBlocks(); renderAdminInfoManager();
 }
-function deleteInfoBlock(id){
-  if(!confirm('Delete this info block?')) return;
-  data.infoBlocks=data.infoBlocks.filter(x=>x.id!==id);
-  save(); renderInfoBlocks(); renderAdminInfoManager();
-}
+function deleteInfoBlock(id){ if(!confirm('Delete this info block?')) return; data.infoBlocks=data.infoBlocks.filter(function(x){return x.id!==id;}); save(); renderInfoBlocks(); renderAdminInfoManager(); }
 function renderInfoBlocks(){
-  const el=document.getElementById('info-list'); if(!el) return;
-  if(!data.infoBlocks.length){ el.innerHTML='<div style="color:var(--muted);">No info blocks yet. Admin can add them.</div>'; return; }
-  el.innerHTML=data.infoBlocks.map(b=>`
-    <div class="info-block" style="position:relative;">
-      ${adminLoggedIn?`<button class="del-btn" style="position:absolute;top:1rem;right:3rem;" onclick="editInfoBlock(${b.id})" title="Edit">✏️</button>
-      <button class="del-btn" style="position:absolute;top:1rem;right:1rem;" onclick="deleteInfoBlock(${b.id})" title="Delete">✕</button>`:''}
-      <h4>${b.icon} ${b.title}</h4>
-      <p style="white-space:pre-line;">${b.content}</p>
-    </div>`).join('');
-  // show/hide add btn
-  const addBtn=document.getElementById('info-add-btn');
-  if(addBtn) addBtn.style.display=adminLoggedIn?'inline-block':'none';
+  var el=document.getElementById('info-list'); if(!el) return;
+  if(!data.infoBlocks.length){ el.innerHTML='<div style="color:var(--muted);">No info blocks yet.</div>'; return; }
+  el.innerHTML=data.infoBlocks.map(function(b){ return '<div class="info-block" style="position:relative;">'+(adminLoggedIn?'<button class="del-btn" style="position:absolute;top:1rem;right:3rem;" onclick="editInfoBlock('+b.id+')" title="Edit">✏️</button><button class="del-btn" style="position:absolute;top:1rem;right:1rem;" onclick="deleteInfoBlock('+b.id+')" title="Delete">✕</button>':'')+'<h4>'+b.icon+' '+b.title+'</h4><p style="white-space:pre-line;">'+b.content+'</p></div>'; }).join('');
+  var addBtn=document.getElementById('info-add-btn'); if(addBtn) addBtn.style.display=adminLoggedIn?'inline-block':'none';
 }
 function renderAdminInfoManager(){
-  const el=document.getElementById('admin-info-manager'); if(!el) return;
+  var el=document.getElementById('admin-info-manager'); if(!el) return;
   if(!data.infoBlocks.length){ el.innerHTML='<div style="color:var(--muted);font-size:0.85rem;">No info blocks yet.</div>'; return; }
-  el.innerHTML=data.infoBlocks.map(b=>`
-    <div style="display:flex;align-items:center;gap:0.75rem;padding:0.65rem 0;border-bottom:1px solid var(--border);">
-      <span style="font-size:1.2rem;">${b.icon}</span>
-      <div style="flex:1;"><strong style="font-size:0.9rem;">${b.title}</strong><div style="font-size:0.78rem;color:var(--muted);white-space:pre-line;">${b.content.length>80?b.content.slice(0,80)+'…':b.content}</div></div>
-      <button class="btn btn-sm btn-blue" onclick="editInfoBlock(${b.id});showSection('info',document.querySelector('nav button:nth-child(6)'))">✏️ Edit</button>
-      <button class="del-btn" onclick="deleteInfoBlock(${b.id})">✕</button>
-    </div>`).join('');
+  el.innerHTML=data.infoBlocks.map(function(b){ return '<div style="display:flex;align-items:center;gap:0.75rem;padding:0.65rem 0;border-bottom:1px solid var(--border);"><span style="font-size:1.2rem;">'+b.icon+'</span><div style="flex:1;"><strong style="font-size:0.9rem;">'+b.title+'</strong><div style="font-size:0.78rem;color:var(--muted);white-space:pre-line;">'+(b.content.length>60?b.content.slice(0,60)+'…':b.content)+'</div></div><button class="btn btn-sm btn-blue" onclick="editInfoBlock('+b.id+');showSection(\'info\',document.querySelectorAll(\'nav button\')[5])">✏️ Edit</button><button class="del-btn" onclick="deleteInfoBlock('+b.id+')">✕</button></div>'; }).join('');
 }
 
 // ========== ADMIN AUTH ==========
 function doAdminLogin(){
-  const u=document.getElementById('admin-username-input').value.trim();
-  const p=document.getElementById('admin-password-input').value;
-  const err=document.getElementById('admin-login-error');
-  if(u===data.adminUser && p===data.adminPass){
-    adminLoggedIn=true;
-    document.getElementById('admin-login-gate').style.display='none';
-    document.getElementById('admin-panel').style.display='block';
-    document.getElementById('admin-username-input').value='';
-    document.getElementById('admin-password-input').value='';
-    err.style.display='none';
-    renderAdminPanel();
-    renderInfoBlocks();
-  } else {
-    err.style.display='block';
-    document.getElementById('admin-password-input').value='';
-  }
+  var u=document.getElementById('admin-username-input').value.trim(); var p=document.getElementById('admin-password-input').value; var err=document.getElementById('admin-login-error');
+  if(u===data.adminUser&&p===data.adminPass){ adminLoggedIn=true; document.getElementById('admin-login-gate').style.display='none'; document.getElementById('admin-panel').style.display='block'; document.getElementById('admin-username-input').value=''; document.getElementById('admin-password-input').value=''; err.style.display='none'; renderAdminPanel(); renderInfoBlocks(); }
+  else { err.style.display='block'; document.getElementById('admin-password-input').value=''; }
 }
-function adminLogout(){
-  adminLoggedIn=false;
-  document.getElementById('admin-login-gate').style.display='block';
-  document.getElementById('admin-panel').style.display='none';
-  renderInfoBlocks();
-}
-function renderAdminPanel(){
-  if(!adminLoggedIn) return;
-  renderMembers();
-  renderAdminHighlightsList();
-  renderAdminInfoManager();
-}
-function togglePwdVisibility(inputId, btn){
-  const inp=document.getElementById(inputId);
-  if(inp.type==='password'){ inp.type='text'; btn.textContent='🙈'; }
-  else { inp.type='password'; btn.textContent='👁'; }
-}
+function adminLogout(){ adminLoggedIn=false; document.getElementById('admin-login-gate').style.display='block'; document.getElementById('admin-panel').style.display='none'; renderInfoBlocks(); }
+function renderAdminPanel(){ if(!adminLoggedIn) return; renderMembers(); renderAdminHLList(); renderAdminInfoManager(); var sp=document.getElementById('site-name-preview'); if(sp) sp.textContent=data.siteName||'RoomBoss'; }
+function togglePwdVisibility(inputId,btn){ var inp=document.getElementById(inputId); if(inp.type==='password'){inp.type='text';btn.textContent='🙈';}else{inp.type='password';btn.textContent='👁';} }
 function changeAdminCredentials(){
-  const u=document.getElementById('new-uname').value.trim();
-  const p=document.getElementById('new-pwd').value;
-  const c=document.getElementById('confirm-pwd').value;
-  if(!u||!p) return alert('Enter both new username and password');
-  if(p!==c) return alert('Passwords do not match!');
-  if(p.length<6) return alert('Password must be at least 6 characters');
-  data.adminUser=u; data.adminPass=p;
-  save();
-  document.getElementById('new-uname').value='';
-  document.getElementById('new-pwd').value='';
-  document.getElementById('confirm-pwd').value='';
-  alert('✅ Credentials updated! Username: '+u);
+  var u=document.getElementById('new-uname').value.trim(); var p=document.getElementById('new-pwd').value; var c=document.getElementById('confirm-pwd').value;
+  if(!u||!p) return alert('Enter both username and password'); if(p!==c) return alert('Passwords do not match!'); if(p.length<6) return alert('Password must be at least 6 characters');
+  data.adminUser=u; data.adminPass=p; save(); document.getElementById('new-uname').value=''; document.getElementById('new-pwd').value=''; document.getElementById('confirm-pwd').value=''; alert('✅ Credentials updated! Username: '+u);
+}
+function renderAdminHLList(){
+  var el=document.getElementById('admin-highlights-list'); if(!el) return;
+  var tc={yellow:'highlight-box',red:'highlight-box red-hl',green:'highlight-box green-hl'};
+  if(!data.highlights.length){ el.innerHTML=''; return; }
+  el.innerHTML=data.highlights.map(function(h){ return '<div class="'+(tc[h.type]||'highlight-box')+'" style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:0.5rem;"><div class="highlight-text">'+h.text+'</div><button class="del-btn" onclick="deleteHighlight('+h.id+')">✕</button></div>'; }).join('');
 }
 
 // ========== POPUP / ANNOUNCEMENT ==========
 function savePopup(){
   data.popup.title=document.getElementById('popup-title-input').value.trim()||data.popup.title;
   data.popup.body=document.getElementById('popup-msg-input').value.trim()||data.popup.body;
-  save(); alert('Popup saved! It will show on next page load.');
+  save(); alert('✅ Popup saved! Will show on next page load for everyone.');
 }
 function postAnnouncement(){
-  const text=document.getElementById('announce-input').value.trim();
-  if(!text) return;
+  var text=document.getElementById('announce-input').value.trim(); if(!text) return;
   data.announcement=text; save();
   document.getElementById('announce-text').textContent=text;
   document.getElementById('announce-banner').style.display='flex';
-  document.getElementById('announce-input').value='';
+  document.getElementById('announce-input').value=''; renderNoticeboard();
 }
-function clearAnnouncement(){
-  data.announcement=''; save();
-  document.getElementById('announce-banner').style.display='none';
-}
+function clearAnnouncement(){ data.announcement=''; save(); document.getElementById('announce-banner').style.display='none'; renderNoticeboard(); }
 
-// ========== CLEAR DATA (admin only) ==========
-function confirmClear(key, msg){
-  if(!confirm(msg+'\nThis cannot be undone!')) return;
+// ========== CLEAR DATA ==========
+function confirmClear(key,msg){
+  if(!confirm(msg+'\nThis removes it for EVERYONE. Cannot be undone!')) return;
   if(key==='cleanDone') data.cleanDone={};
   else data[key]=[];
-  save(); renderAll(); renderAdminPanel();
-  alert('✅ Cleared: '+key);
+  save(); renderAll(); renderAdminPanel(); alert('✅ Cleared.');
 }
 function confirmClearAll(){
-  const code=prompt('⚠️ Type DELETE to confirm clearing ALL data:');
+  var code=prompt('⚠️ Type DELETE to confirm clearing ALL data for everyone:');
   if(code==='DELETE'){
-    const u=data.adminUser; const p=data.adminPass;
-    const sn=data.siteName; const sa=data.siteAccent;
-    data = JSON.parse(JSON.stringify(DEFAULTS));
-    data.adminUser=u; data.adminPass=p;
-    data.siteName=sn; data.siteAccent=sa;
-    save();
-    alert('All data cleared. Page will reload.');
-    location.reload();
-  } else { alert('Cancelled. Nothing was deleted.'); }
+    var u=data.adminUser; var p=data.adminPass; var sn=data.siteName; var sa=data.siteAccent;
+    data=JSON.parse(JSON.stringify(DEFAULTS)); data.adminUser=u; data.adminPass=p; data.siteName=sn; data.siteAccent=sa;
+    save(); alert('All data cleared.'); location.reload();
+  } else { alert('Cancelled.'); }
 }
+
+// ========== DASHBOARD ==========
 function renderDashboard(){
-  // Today menu
-  const m = data.menu[todayDay]||defaultMenu[todayDay];
-  document.getElementById('dash-menu-name').textContent=m.main;
-  document.getElementById('dash-menu-desc').textContent=m.desc||'';
-  document.getElementById('dash-menu-items').innerHTML=(m.sides||[]).map(s=>`<span class="menu-item-tag">${s}</span>`).join('');
-
-  // Duties
-  const cleanToday=data.cleaning.filter(c=>c.day==='Daily'||c.day===todayDay||c.day==='Weekly');
-  const purToday=data.purchases.filter(p=>!p.done&&(p.date===now.toISOString().split('T')[0]||!p.date));
-  const dutiesEl=document.getElementById('dash-duties');
-  let dutiesHTML='';
-  if(cleanToday.length) dutiesHTML+=cleanToday.map(c=>`<div class="highlight-box" style="margin-bottom:0.6rem;"><div class="highlight-text">🧹 <strong>${c.task}</strong> (${c.area}) → ${c.person||'Anyone'}</div></div>`).join('');
-  if(purToday.length) dutiesHTML+=purToday.slice(0,3).map(p=>`<div class="highlight-box red-hl" style="margin-bottom:0.6rem;"><div class="highlight-text">🛒 Buy: <strong>${p.item}</strong>${p.person?' → '+p.person:''}</div></div>`).join('');
-  dutiesEl.innerHTML=dutiesHTML||'<div style="color:var(--muted);font-size:0.88rem;">No duties for today! 🎉</div>';
-
-  // Cook latest
-  const cookEl=document.getElementById('dash-cook-latest');
-  if(data.cookMsgs.length){
-    const m2=data.cookMsgs[0];
-    cookEl.innerHTML=`<div class="cook-msg"><div class="cook-msg-header"><div class="cook-avatar">${m2.name[0]}</div><div><div class="cook-msg-name">${m2.name}</div><div class="cook-msg-time">${m2.time}</div></div></div><div class="cook-msg-body">${m2.msg}</div></div>`;
-  } else cookEl.innerHTML='<div style="color:var(--muted);font-size:0.88rem;">No messages yet.</div>';
+  var m=data.menu[todayDay]||defaultMenu[todayDay];
+  var dmn=document.getElementById('dash-menu-name'); if(dmn) dmn.textContent=m.main;
+  var dmd=document.getElementById('dash-menu-desc'); if(dmd) dmd.textContent=m.desc||'';
+  var dmi=document.getElementById('dash-menu-items'); if(dmi) dmi.innerHTML=(m.sides||[]).map(function(s){return '<span class="menu-item-tag">'+s+'</span>';}).join('');
+  var cleanToday=data.cleaning.filter(function(c){return c.day==='Daily'||c.day===todayDay||c.day==='Weekly';});
+  var todayISO=now.toISOString().split('T')[0];
+  var purToday=data.purchases.filter(function(p){return !p.done&&(p.date===todayISO||!p.date);});
+  var dutiesEl=document.getElementById('dash-duties');
+  if(dutiesEl){ var h=''; if(cleanToday.length) h+=cleanToday.map(function(c){return '<div class="highlight-box" style="margin-bottom:0.6rem;"><div class="highlight-text">🧹 <strong>'+c.task+'</strong> ('+c.area+') → '+(c.person||'Anyone')+'</div></div>';}).join(''); if(purToday.length) h+=purToday.slice(0,3).map(function(p){return '<div class="highlight-box red-hl" style="margin-bottom:0.6rem;"><div class="highlight-text">🛒 Buy: <strong>'+p.item+'</strong>'+(p.person?' → '+p.person:'')+'</div></div>';}).join(''); dutiesEl.innerHTML=h||'<div style="color:var(--muted);font-size:0.88rem;">No duties for today! 🎉</div>'; }
+  var cookEl=document.getElementById('dash-cook-latest');
+  if(cookEl){ if(data.cookMsgs.length){ var m2=data.cookMsgs[0]; cookEl.innerHTML='<div class="cook-msg"><div class="cook-msg-header"><div class="cook-avatar">'+m2.name[0]+'</div><div><div class="cook-msg-name">'+m2.name+'</div><div class="cook-msg-time">'+m2.time+'</div></div></div><div class="cook-msg-body">'+m2.msg+'</div></div>'; } else cookEl.innerHTML='<div style="color:var(--muted);font-size:0.88rem;">No messages yet.</div>'; }
 }
-
-// ========== START ==========
-init();
-
-// Expose all functions to window (required for type="module" + onclick= handlers)
-Object.assign(window, {
-  showSection, addMember, removeMember,
-  addPurchase, togglePurchase, deletePurchase,
-  toggleCleanForm, cancelCleanEdit, editCleaning, saveCleaningTask, deleteCleaning, toggleCleanDone, markAllDoneToday,
-  saveMenu,
-  postCookMessage, deleteCookMsg, addCookGrocery, deleteCookGrocery,
-  addHighlight, deleteHighlight,
-  toggleInfoForm, cancelInfoEdit, editInfoBlock, saveInfo, deleteInfoBlock,
-  doAdminLogin, adminLogout, togglePwdVisibility, changeAdminCredentials,
-  savePopup, postAnnouncement, clearAnnouncement,
-  saveSiteName,
-  confirmClear, confirmClearAll
-});
 </script>
 </body>
 </html>
