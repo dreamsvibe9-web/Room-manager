@@ -674,7 +674,7 @@
     <!-- DATA MANAGEMENT -->
     <div class="card" style="border-color:rgba(231,76,60,0.3);">
       <div class="card-title" style="color:var(--red);"><div class="dot" style="background:var(--red);"></div> ⚠️ Data Management</div>
-      <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.25rem;">All data is saved in this browser's local storage. Use with extreme care — these actions cannot be undone.</p>
+      <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.25rem;">Data is stored in the shared Firebase database. Clearing here removes it for <strong style="color:var(--red);">everyone</strong>. These actions cannot be undone.</p>
       <div style="display:flex;flex-wrap:wrap;gap:0.75rem;">
         <button class="btn btn-sm btn-red" onclick="confirmClear('purchases','Clear all purchase items?')">🗑 Clear Purchases</button>
         <button class="btn btn-sm btn-red" onclick="confirmClear('cleaning','Clear all cleaning tasks?')">🗑 Clear Cleaning</button>
@@ -689,33 +689,88 @@
 
 </main>
 
-<script>
-// ========== DATA ==========
-let data = JSON.parse(localStorage.getItem('roomBossData') || '{}');
-if(!data.members) data.members = ['Rahul','Arjun','Vijay','Kiran'];
-if(!data.purchases) data.purchases = [];
-if(!data.cleaning) data.cleaning = [];
-if(!data.menu) data.menu = {};
-if(!data.cookMsgs) data.cookMsgs = [];
-if(!data.cookGrocery) data.cookGrocery = [];
-if(!data.highlights) data.highlights = [];
-if(!data.popup) data.popup = {title:'Welcome to Room Manager!', body:"Check today's menu and your assigned duties. Don't forget to mark your tasks as done!"};
-if(!data.announcement) data.announcement = '';
-if(!data.cleanDone) data.cleanDone = {};
-if(!data.adminUser) data.adminUser = 'admin';
-if(!data.adminPass) data.adminPass = 'room1234';
-if(!data.siteName) data.siteName = 'RoomBoss';
-if(!data.siteAccent) data.siteAccent = 'Boss';
-if(!data.infoBlocks) data.infoBlocks = [
-  {id:1, icon:'📶', title:'WiFi Details', content:'Network: Bachelor_Room_5G\nPassword: room@2024'},
-  {id:2, icon:'💰', title:'Rent & Bills', content:'Rent due: 1st of every month\nElectricity split equally among all members.'},
-  {id:3, icon:'📋', title:'House Rules', content:'1. No guests after 10 PM\n2. Kitchen to be cleaned after cooking\n3. No littering in common areas\n4. Respect quiet hours 11 PM – 7 AM'},
-  {id:4, icon:'🚨', title:'Emergency Contacts', content:'Landlord: +91 XXXXXXXXXX\nPlumber: +91 XXXXXXXXXX\nElectrician: +91 XXXXXXXXXX'}
-];
+<script type="module">
+import { initializeApp }                        from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyDnLXqYxp1xHbok_xt4WA4frnzWd-eCz5s",
+  authDomain:        "rashidiya-room-mess.firebaseapp.com",
+  projectId:         "rashidiya-room-mess",
+  storageBucket:     "rashidiya-room-mess.firebasestorage.app",
+  messagingSenderId: "982538508627",
+  appId:             "1:982538508627:web:5d5f1158f881aa89ec69a6"
+};
+
+const app = initializeApp(FIREBASE_CONFIG);
+const db  = getFirestore(app);
+const DOC = doc(db, 'roomapp', 'shareddata');
+
+// ========== DEFAULTS ==========
+const DEFAULTS = {
+  members:   ['Rahul','Arjun','Vijay','Kiran'],
+  purchases: [],
+  cleaning:  [],
+  menu:      {},
+  cookMsgs:  [],
+  cookGrocery: [],
+  highlights: [],
+  popup:     {title:'Welcome to Room Manager!', body:"Check today's menu and your assigned duties. Don't forget to mark your tasks as done!"},
+  announcement: '',
+  cleanDone: {},
+  adminUser: 'admin',
+  adminPass: 'room1234',
+  siteName:  'Rashidiya Room Mess',
+  siteAccent:'Room Mess',
+  infoBlocks:[
+    {id:1,icon:'📶',title:'WiFi Details',content:'Network: Bachelor_Room_5G\nPassword: room@2024'},
+    {id:2,icon:'💰',title:'Rent & Bills',content:'Rent due: 1st of every month\nElectricity split equally among all members.'},
+    {id:3,icon:'📋',title:'House Rules',content:'1. No guests after 10 PM\n2. Kitchen to be cleaned after cooking\n3. No littering in common areas\n4. Respect quiet hours 11 PM – 7 AM'},
+    {id:4,icon:'🚨',title:'Emergency Contacts',content:'Landlord: +91 XXXXXXXXXX\nPlumber: +91 XXXXXXXXXX\nElectrician: +91 XXXXXXXXXX'}
+  ]
+};
+
+let data = {};
 let adminLoggedIn = false;
 
-function save(){ localStorage.setItem('roomBossData',JSON.stringify(data)); }
+// ── show a loading overlay until first data arrives ──
+document.body.insertAdjacentHTML('afterbegin',
+  `<div id="fb-loading" style="position:fixed;inset:0;background:#0f0f13;z-index:99999;
+     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;">
+    <div style="font-size:2.5rem;">🔄</div>
+    <div style="font-family:'Syne',sans-serif;color:#f0a500;font-size:1.1rem;">Connecting to shared database…</div>
+    <div style="color:#888;font-size:0.85rem;" id="fb-load-msg">Please wait</div>
+  </div>`);
+
+// ── save: push entire data object to Firestore ──
+async function save(){
+  try {
+    await setDoc(DOC, data);
+  } catch(e){
+    console.error('Save failed:', e);
+    alert('⚠️ Could not save to database.\n\nCheck your Firebase config keys in the HTML file.');
+  }
+}
+
+// ── real-time listener: whenever ANY user saves, everyone gets updated ──
+onSnapshot(DOC, (snap) => {
+  const loadingEl = document.getElementById('fb-loading');
+  if(snap.exists()){
+    data = snap.data();
+    // Fill any missing keys with defaults
+    Object.keys(DEFAULTS).forEach(k=>{ if(data[k]===undefined) data[k]=DEFAULTS[k]; });
+  } else {
+    // First time — no doc yet, use defaults and create it
+    data = JSON.parse(JSON.stringify(DEFAULTS));
+    setDoc(DOC, data);
+  }
+  if(loadingEl){ loadingEl.remove(); init(); }
+  else { renderAll(); renderSiteName(); }
+}, (err)=>{
+  document.getElementById('fb-load-msg').textContent =
+    '❌ Connection failed. Check Firebase config or internet.';
+  console.error(err);
+});
 
 // ========== INIT ==========
 const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
@@ -1323,10 +1378,12 @@ function confirmClearAll(){
   const code=prompt('⚠️ Type DELETE to confirm clearing ALL data:');
   if(code==='DELETE'){
     const u=data.adminUser; const p=data.adminPass;
-    localStorage.removeItem('roomBossData');
-    // Restore admin creds so they can still log in
-    data={}; data.adminUser=u; data.adminPass=p;
+    const sn=data.siteName; const sa=data.siteAccent;
+    data = JSON.parse(JSON.stringify(DEFAULTS));
+    data.adminUser=u; data.adminPass=p;
+    data.siteName=sn; data.siteAccent=sa;
     save();
+    alert('All data cleared. Page will reload.');
     location.reload();
   } else { alert('Cancelled. Nothing was deleted.'); }
 }
@@ -1356,6 +1413,21 @@ function renderDashboard(){
 
 // ========== START ==========
 init();
+
+// Expose all functions to window (required for type="module" + onclick= handlers)
+Object.assign(window, {
+  showSection, addMember, removeMember,
+  addPurchase, togglePurchase, deletePurchase,
+  toggleCleanForm, cancelCleanEdit, editCleaning, saveCleaningTask, deleteCleaning, toggleCleanDone, markAllDoneToday,
+  saveMenu,
+  postCookMessage, deleteCookMsg, addCookGrocery, deleteCookGrocery,
+  addHighlight, deleteHighlight,
+  toggleInfoForm, cancelInfoEdit, editInfoBlock, saveInfo, deleteInfoBlock,
+  doAdminLogin, adminLogout, togglePwdVisibility, changeAdminCredentials,
+  savePopup, postAnnouncement, clearAnnouncement,
+  saveSiteName,
+  confirmClear, confirmClearAll
+});
 </script>
 </body>
 </html>
