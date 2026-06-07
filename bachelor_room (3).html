@@ -5,204 +5,181 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bachelor Room Manager</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script>
+// Register Service Worker for push notifications
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('./sw.js').then(function(reg){
+    console.log('SW registered:', reg.scope);
+  }).catch(function(err){ console.log('SW error:', err); });
+}
+</script>
 <style>
   :root {
-    --bg: #0f0f13;
-    --surface: #1a1a22;
-    --surface2: #22222e;
-    --accent: #f0a500;
-    --accent2: #e05a00;
-    --green: #2ecc71;
-    --red: #e74c3c;
-    --blue: #3498db;
-    --purple: #9b59b6;
-    --text: #f0ede8;
-    --muted: #888794;
-    --border: rgba(255,255,255,0.08);
+    --bg:#0f0f13; --surface:#1a1a22; --surface2:#22222e;
+    --accent:#f0a500; --accent2:#e05a00;
+    --green:#2ecc71; --red:#e74c3c; --blue:#3498db; --purple:#9b59b6;
+    --text:#f0ede8; --muted:#888794; --border:rgba(255,255,255,0.08);
+    --nav-h:56px; --bottom-nav-h:64px;
   }
-  * { margin:0; padding:0; box-sizing:border-box; }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   body { background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; min-height:100vh; }
 
-  /* POPUP OVERLAY */
-  #popup-overlay {
-    position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999;
-    display:flex; align-items:center; justify-content:center;
-    backdrop-filter:blur(6px);
-  }
-  .popup-box {
-    background:var(--surface); border:1px solid var(--accent); border-radius:16px;
-    padding:2rem 2.5rem; max-width:420px; width:90%; text-align:center;
-    animation: popIn 0.4s cubic-bezier(.34,1.56,.64,1);
-  }
+  /* ── POPUP ── */
+  #popup-overlay { position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px); }
+  .popup-box { background:var(--surface);border:1px solid var(--accent);border-radius:16px;padding:2rem 2.5rem;max-width:420px;width:90%;text-align:center;animation:popIn 0.4s cubic-bezier(.34,1.56,.64,1); }
   @keyframes popIn { from{transform:scale(0.7);opacity:0} to{transform:scale(1);opacity:1} }
-  .popup-icon { font-size:3rem; margin-bottom:1rem; }
-  .popup-box h2 { font-family:'Syne',sans-serif; font-size:1.4rem; color:var(--accent); margin-bottom:0.75rem; }
-  .popup-box p { color:var(--muted); font-size:0.95rem; line-height:1.6; }
-  .popup-close {
-    margin-top:1.5rem; background:var(--accent); color:#000; border:none;
-    padding:0.6rem 2rem; border-radius:8px; font-family:'Syne',sans-serif;
-    font-weight:700; cursor:pointer; font-size:0.95rem;
-  }
-  .popup-close:hover { background:#ffc233; }
+  .popup-icon { font-size:3rem;margin-bottom:1rem; }
+  .popup-box h2 { font-family:'Syne',sans-serif;font-size:1.3rem;color:var(--accent);margin-bottom:0.75rem; }
+  .popup-box p { color:var(--muted);font-size:0.9rem;line-height:1.6; }
+  .popup-close { margin-top:1.5rem;background:var(--accent);color:#000;border:none;padding:0.7rem 2rem;border-radius:8px;font-family:'Syne',sans-serif;font-weight:700;cursor:pointer;font-size:0.95rem;width:100%; }
 
-  /* HEADER */
-  header {
-    background:var(--surface); border-bottom:1px solid var(--border);
-    padding:1rem 2rem; display:flex; align-items:center; justify-content:space-between;
-    position:sticky; top:0; z-index:100;
-  }
-  .logo { font-family:'Syne',sans-serif; font-size:1.3rem; font-weight:800; }
+  /* ── HEADER ── */
+  header { background:var(--surface);border-bottom:1px solid var(--border);padding:0.75rem 1.25rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100; }
+  .logo { font-family:'Syne',sans-serif;font-size:1.15rem;font-weight:800; }
   .logo span { color:var(--accent); }
-  .header-date { color:var(--muted); font-size:0.85rem; }
-  .today-badge {
-    background:var(--accent); color:#000; border-radius:6px;
-    padding:0.3rem 0.8rem; font-size:0.8rem; font-family:'Syne',sans-serif; font-weight:700;
-  }
+  .header-date { color:var(--muted);font-size:0.78rem; }
+  .today-badge { background:var(--accent);color:#000;border-radius:6px;padding:0.25rem 0.65rem;font-size:0.75rem;font-family:'Syne',sans-serif;font-weight:700; }
 
-  /* NAV */
-  nav {
-    background:var(--surface2); padding:0 2rem;
-    display:flex; gap:0; border-bottom:1px solid var(--border); overflow-x:auto;
+  /* ── DESKTOP NAV (hidden on mobile) ── */
+  nav.desktop-nav {
+    background:var(--surface2);padding:0 1.5rem;
+    display:flex;gap:0;border-bottom:1px solid var(--border);overflow-x:auto;
+    scrollbar-width:none;
   }
-  nav button {
-    background:none; border:none; color:var(--muted); padding:1rem 1.2rem;
-    font-family:'DM Sans',sans-serif; font-size:0.9rem; cursor:pointer;
-    border-bottom:2px solid transparent; white-space:nowrap; transition:all 0.2s;
-  }
-  nav button.active { color:var(--accent); border-bottom-color:var(--accent); }
-  nav button:hover { color:var(--text); }
+  nav.desktop-nav::-webkit-scrollbar { display:none; }
+  nav.desktop-nav button { background:none;border:none;color:var(--muted);padding:0.9rem 1rem;font-family:'DM Sans',sans-serif;font-size:0.85rem;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all 0.2s; }
+  nav.desktop-nav button.active { color:var(--accent);border-bottom-color:var(--accent); }
+  nav.desktop-nav button:hover { color:var(--text); }
 
-  /* MAIN */
-  main { padding:2rem; max-width:1100px; margin:0 auto; }
+  /* ── MOBILE BOTTOM NAV ── */
+  .mobile-nav {
+    display:none;
+    position:fixed;bottom:0;left:0;right:0;
+    background:var(--surface);border-top:1px solid var(--border);
+    z-index:200;height:var(--bottom-nav-h);
+    overflow-x:auto;scrollbar-width:none;
+    -webkit-overflow-scrolling:touch;
+  }
+  .mobile-nav::-webkit-scrollbar { display:none; }
+  .mobile-nav-inner { display:flex;min-width:max-content;height:100%; }
+  .mobile-nav button {
+    background:none;border:none;color:var(--muted);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:0 1rem;min-width:72px;gap:3px;cursor:pointer;
+    font-family:'DM Sans',sans-serif;font-size:0.6rem;white-space:nowrap;
+    border-top:2px solid transparent;transition:all 0.15s;
+  }
+  .mobile-nav button .mnav-icon { font-size:1.3rem;line-height:1; }
+  .mobile-nav button.active { color:var(--accent);border-top-color:var(--accent); }
+
+  /* ── MAIN ── */
+  main { padding:1.25rem;max-width:1100px;margin:0 auto; }
+
+  /* ── CARDS ── */
+  .card { background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.25rem;margin-bottom:1.25rem; }
+  .card-title { font-family:'Syne',sans-serif;font-size:0.95rem;font-weight:700;color:var(--accent);margin-bottom:1rem;display:flex;align-items:center;gap:0.5rem; }
+  .card-title .dot { width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0; }
+
+  /* ── GRID ── */
+  .grid-2 { display:grid;grid-template-columns:1fr 1fr;gap:1.25rem; }
+  .grid-3 { display:grid;grid-template-columns:repeat(3,1fr);gap:0.75rem; }
+
+  /* ── FORMS ── */
+  input,textarea,select { width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:0.7rem 0.9rem;font-family:'DM Sans',sans-serif;font-size:1rem;outline:none;transition:border 0.2s;-webkit-appearance:none; }
+  input:focus,textarea:focus,select:focus { border-color:var(--accent); }
+  label { font-size:0.78rem;color:var(--muted);display:block;margin-bottom:0.3rem; }
+  .form-row { margin-bottom:0.9rem; }
+
+  /* ── BUTTONS ── */
+  .btn { background:var(--accent);color:#000;border:none;border-radius:8px;padding:0.75rem 1.4rem;font-family:'Syne',sans-serif;font-weight:700;font-size:0.875rem;cursor:pointer;transition:all 0.15s;touch-action:manipulation; }
+  .btn:active { transform:scale(0.97); }
+  .btn-sm { padding:0.45rem 0.85rem;font-size:0.78rem; }
+  .btn-red { background:var(--red);color:#fff; }
+  .btn-green { background:var(--green);color:#000; }
+  .btn-blue { background:var(--blue);color:#fff; }
+
+  /* ── TABLES — mobile scrollable ── */
+  .table-wrap { overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:8px; }
+  table { width:100%;border-collapse:collapse;font-size:0.82rem;min-width:480px; }
+  th { text-align:left;color:var(--muted);padding:0.55rem 0.7rem;border-bottom:1px solid var(--border);font-weight:500;font-size:0.75rem;white-space:nowrap; }
+  td { padding:0.65rem 0.7rem;border-bottom:1px solid rgba(255,255,255,0.04);vertical-align:middle; }
+  tr:last-child td { border-bottom:none; }
+
+  /* ── BADGES ── */
+  .badge { display:inline-block;padding:0.2rem 0.55rem;border-radius:6px;font-size:0.72rem;font-weight:500; }
+  .badge-green { background:rgba(46,204,113,0.15);color:var(--green); }
+  .badge-red { background:rgba(231,76,60,0.15);color:var(--red); }
+  .badge-yellow { background:rgba(240,165,0,0.15);color:var(--accent); }
+  .badge-blue { background:rgba(52,152,219,0.15);color:var(--blue); }
+  .badge-purple { background:rgba(155,89,182,0.15);color:var(--purple); }
+
+  /* ── TODAY MENU CARD ── */
+  .today-menu-card { background:linear-gradient(135deg,#1e1a0e 0%,#221a00 100%);border:1px solid rgba(240,165,0,0.3);border-radius:14px;padding:1.25rem;position:relative;overflow:hidden; }
+  .today-menu-card::before { content:'';position:absolute;top:-30px;right:-30px;width:120px;height:120px;border-radius:50%;background:rgba(240,165,0,0.06); }
+  .menu-day-label { font-size:0.7rem;color:var(--accent);text-transform:uppercase;letter-spacing:2px;margin-bottom:0.3rem; }
+  .menu-main { font-family:'Syne',sans-serif;font-size:1.3rem;font-weight:800;color:var(--text); }
+  .menu-sub { color:var(--muted);font-size:0.82rem;margin-top:0.3rem; }
+  .menu-items { display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.75rem; }
+  .menu-item-tag { background:rgba(240,165,0,0.12);color:var(--accent);border:1px solid rgba(240,165,0,0.2);border-radius:20px;padding:0.25rem 0.7rem;font-size:0.75rem; }
+
+  /* ── STAT CARDS ── */
+  .stat-card { background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1rem;text-align:center; }
+  .stat-number { font-family:'Syne',sans-serif;font-size:1.6rem;font-weight:800;color:var(--accent); }
+  .stat-label { color:var(--muted);font-size:0.72rem;margin-top:0.2rem; }
+
+  /* ── HIGHLIGHT BOX ── */
+  .highlight-box { border-left:3px solid var(--accent);background:rgba(240,165,0,0.06);border-radius:0 8px 8px 0;padding:0.85rem 1rem;margin-bottom:0.75rem; }
+  .highlight-box.red-hl { border-left-color:var(--red);background:rgba(231,76,60,0.06); }
+  .highlight-box.green-hl { border-left-color:var(--green);background:rgba(46,204,113,0.06); }
+  .highlight-text { font-size:0.88rem;line-height:1.5; }
+
+  /* ── COOK MSG ── */
+  .cook-msg { background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:1rem;margin-bottom:0.75rem; }
+  .cook-msg-header { display:flex;align-items:center;gap:0.6rem;margin-bottom:0.5rem; }
+  .cook-avatar { width:34px;height:34px;border-radius:50%;background:var(--accent2);display:flex;align-items:center;justify-content:center;font-size:0.95rem;font-weight:700;color:#fff;font-family:'Syne',sans-serif;flex-shrink:0; }
+  .cook-msg-name { font-weight:500;font-size:0.88rem; }
+  .cook-msg-time { font-size:0.72rem;color:var(--muted); }
+  .cook-msg-body { font-size:0.85rem;color:var(--text);line-height:1.6;padding-left:42px; }
+
+  /* ── MISC ── */
+  .del-btn { background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem;padding:0.3rem;min-width:32px;min-height:32px;display:inline-flex;align-items:center;justify-content:center; }
+  .sec-header { display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:0.5rem; }
+  .sec-title { font-family:'Syne',sans-serif;font-size:1.25rem;font-weight:800; }
+  .check-item { display:flex;align-items:flex-start;gap:0.75rem;padding:0.7rem 0;border-bottom:1px solid var(--border); }
+  .check-item:last-child { border-bottom:none; }
+  .check-item input[type=checkbox] { width:20px;height:20px;accent-color:var(--accent);cursor:pointer;flex-shrink:0;margin-top:2px; }
+  .check-item.done span { text-decoration:line-through;color:var(--muted); }
+  .info-block { background:var(--surface2);border-radius:10px;padding:1.1rem;margin-bottom:0.85rem; }
+  .info-block h4 { font-family:'Syne',sans-serif;font-size:0.92rem;color:var(--accent);margin-bottom:0.4rem; }
+  .info-block p { font-size:0.85rem;color:var(--text);line-height:1.6; }
+  .announce-banner { background:rgba(231,76,60,0.12);border:1px solid rgba(231,76,60,0.3);border-radius:10px;padding:0.9rem 1rem;display:flex;align-items:flex-start;gap:0.75rem;margin-bottom:1.25rem; }
+  .announce-icon { font-size:1.1rem;flex-shrink:0;margin-top:2px; }
+  .announce-text { font-size:0.85rem;line-height:1.5; }
+  .announce-text strong { color:var(--red); }
+  .rota-row { display:flex;align-items:center;gap:1rem;padding:0.75rem 0;border-bottom:1px solid var(--border); }
+  .rota-day { font-family:'Syne',sans-serif;font-weight:700;min-width:70px;font-size:0.88rem; }
+
+  /* ── MOBILE OVERRIDES ── */
+  @media(max-width:700px){
+    .grid-2,.grid-3 { grid-template-columns:1fr; }
+    main { padding:1rem 0.85rem; padding-bottom:calc(var(--bottom-nav-h) + 1rem); }
+    nav.desktop-nav { display:none; }
+    .mobile-nav { display:block; }
+    .stat-number { font-size:1.35rem; }
+    .menu-main { font-size:1.15rem; }
+    .sec-title { font-size:1.1rem; }
+    .card { padding:1rem; }
+    .today-menu-card { padding:1rem; }
+    table { min-width:560px; }
+    .btn { padding:0.7rem 1.1rem; }
+    /* full-width buttons on mobile forms */
+    .card > .btn:not(.btn-sm) { width:100%; }
+  }
+  @media(min-width:701px){
+    .mobile-nav { display:none; }
+  }
   .section { display:none; }
   .section.active { display:block; }
-
-  /* CARDS */
-  .card {
-    background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:1.5rem;
-    margin-bottom:1.5rem;
-  }
-  .card-title {
-    font-family:'Syne',sans-serif; font-size:1rem; font-weight:700; color:var(--accent);
-    margin-bottom:1.25rem; display:flex; align-items:center; gap:0.5rem;
-  }
-  .card-title .dot { width:8px; height:8px; border-radius:50%; background:var(--accent); flex-shrink:0; }
-
-  /* GRID */
-  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; }
-  .grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; }
-  @media(max-width:700px){ .grid-2,.grid-3{grid-template-columns:1fr;} }
-
-  /* FORM ELEMENTS */
-  input, textarea, select {
-    width:100%; background:var(--surface2); border:1px solid var(--border);
-    color:var(--text); border-radius:8px; padding:0.6rem 0.8rem; font-family:'DM Sans',sans-serif;
-    font-size:0.9rem; outline:none; transition:border 0.2s;
-  }
-  input:focus, textarea:focus, select:focus { border-color:var(--accent); }
-  label { font-size:0.8rem; color:var(--muted); display:block; margin-bottom:0.3rem; }
-  .form-row { margin-bottom:1rem; }
-  .btn {
-    background:var(--accent); color:#000; border:none; border-radius:8px;
-    padding:0.65rem 1.4rem; font-family:'Syne',sans-serif; font-weight:700;
-    font-size:0.875rem; cursor:pointer; transition:all 0.2s;
-  }
-  .btn:hover { background:#ffc233; transform:translateY(-1px); }
-  .btn-sm { padding:0.35rem 0.75rem; font-size:0.78rem; }
-  .btn-red { background:var(--red); color:#fff; }
-  .btn-red:hover { background:#ff6b5b; }
-  .btn-green { background:var(--green); color:#000; }
-  .btn-blue { background:var(--blue); color:#fff; }
-
-  /* TABLES */
-  table { width:100%; border-collapse:collapse; font-size:0.88rem; }
-  th { text-align:left; color:var(--muted); padding:0.6rem 0.8rem; border-bottom:1px solid var(--border); font-weight:500; }
-  td { padding:0.7rem 0.8rem; border-bottom:1px solid rgba(255,255,255,0.04); vertical-align:middle; }
-  tr:last-child td { border-bottom:none; }
-  tr:hover td { background:rgba(255,255,255,0.02); }
-
-  /* BADGES */
-  .badge {
-    display:inline-block; padding:0.25rem 0.65rem; border-radius:6px;
-    font-size:0.75rem; font-weight:500;
-  }
-  .badge-green { background:rgba(46,204,113,0.15); color:var(--green); }
-  .badge-red { background:rgba(231,76,60,0.15); color:var(--red); }
-  .badge-yellow { background:rgba(240,165,0,0.15); color:var(--accent); }
-  .badge-blue { background:rgba(52,152,219,0.15); color:var(--blue); }
-  .badge-purple { background:rgba(155,89,182,0.15); color:var(--purple); }
-
-  /* TODAY HIGHLIGHT */
-  .today-menu-card {
-    background:linear-gradient(135deg, #1e1a0e 0%, #221a00 100%);
-    border:1px solid rgba(240,165,0,0.3); border-radius:16px; padding:2rem;
-    position:relative; overflow:hidden; margin-bottom:1.5rem;
-  }
-  .today-menu-card::before {
-    content:''; position:absolute; top:-40px; right:-40px;
-    width:160px; height:160px; border-radius:50%;
-    background:rgba(240,165,0,0.06);
-  }
-  .menu-day-label { font-size:0.75rem; color:var(--accent); text-transform:uppercase; letter-spacing:2px; margin-bottom:0.4rem; }
-  .menu-main { font-family:'Syne',sans-serif; font-size:1.6rem; font-weight:800; color:var(--text); }
-  .menu-sub { color:var(--muted); font-size:0.9rem; margin-top:0.4rem; }
-  .menu-items { display:flex; gap:0.75rem; flex-wrap:wrap; margin-top:1rem; }
-  .menu-item-tag { background:rgba(240,165,0,0.12); color:var(--accent); border:1px solid rgba(240,165,0,0.2); border-radius:20px; padding:0.3rem 0.9rem; font-size:0.82rem; }
-
-  /* STAT CARDS */
-  .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:1.25rem; text-align:center; }
-  .stat-number { font-family:'Syne',sans-serif; font-size:2rem; font-weight:800; color:var(--accent); }
-  .stat-label { color:var(--muted); font-size:0.8rem; margin-top:0.2rem; }
-
-  /* HIGHLIGHT BOX */
-  .highlight-box { border-left:3px solid var(--accent); background:rgba(240,165,0,0.06); border-radius:0 8px 8px 0; padding:1rem 1.25rem; margin-bottom:1rem; }
-  .highlight-box.red-hl { border-left-color:var(--red); background:rgba(231,76,60,0.06); }
-  .highlight-box.green-hl { border-left-color:var(--green); background:rgba(46,204,113,0.06); }
-  .highlight-text { font-size:0.9rem; line-height:1.6; }
-
-  /* COOK MESSAGE */
-  .cook-msg { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:1.25rem; margin-bottom:1rem; }
-  .cook-msg-header { display:flex; align-items:center; gap:0.6rem; margin-bottom:0.6rem; }
-  .cook-avatar { width:36px; height:36px; border-radius:50%; background:var(--accent2); display:flex; align-items:center; justify-content:center; font-size:1rem; font-weight:700; color:#fff; font-family:'Syne',sans-serif; }
-  .cook-msg-name { font-weight:500; font-size:0.9rem; }
-  .cook-msg-time { font-size:0.75rem; color:var(--muted); }
-  .cook-msg-body { font-size:0.88rem; color:var(--text); line-height:1.6; padding-left:44px; }
-
-  /* DELETE btn */
-  .del-btn { background:none; border:none; color:var(--muted); cursor:pointer; font-size:1rem; padding:0.2rem; transition:color 0.2s; }
-  .del-btn:hover { color:var(--red); }
-
-  /* SECTION HEADERS */
-  .sec-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem; }
-  .sec-title { font-family:'Syne',sans-serif; font-size:1.4rem; font-weight:800; }
-
-  /* CHECKBOX */
-  .check-item { display:flex; align-items:center; gap:0.75rem; padding:0.6rem 0; border-bottom:1px solid var(--border); }
-  .check-item:last-child { border-bottom:none; }
-  .check-item input[type=checkbox] { width:18px; height:18px; accent-color:var(--accent); cursor:pointer; flex-shrink:0; }
-  .check-item.done span { text-decoration:line-through; color:var(--muted); }
-
-  /* ROTATING SCHEDULE */
-  .rota-row { display:flex; align-items:center; gap:1rem; padding:0.75rem 0; border-bottom:1px solid var(--border); }
-  .rota-day { font-family:'Syne',sans-serif; font-weight:700; min-width:80px; }
-  .rota-today-marker { font-size:0.7rem; background:var(--accent); color:#000; border-radius:4px; padding:0.1rem 0.4rem; margin-left:0.4rem; font-weight:700; }
-  .rota-person { flex:1; }
-  .rota-type { font-size:0.8rem; color:var(--muted); }
-
-  /* INFO SECTION */
-  .info-block { background:var(--surface2); border-radius:10px; padding:1.25rem; margin-bottom:1rem; }
-  .info-block h4 { font-family:'Syne',sans-serif; font-size:0.95rem; color:var(--accent); margin-bottom:0.5rem; }
-  .info-block p { font-size:0.88rem; color:var(--text); line-height:1.6; }
-
-  /* ANNOUNCEMENT banner */
-  .announce-banner {
-    background:rgba(231,76,60,0.12); border:1px solid rgba(231,76,60,0.3);
-    border-radius:10px; padding:1rem 1.25rem; display:flex; align-items:flex-start;
-    gap:0.75rem; margin-bottom:1.5rem;
-  }
-  .announce-icon { font-size:1.2rem; flex-shrink:0; margin-top:2px; }
-  .announce-text { font-size:0.9rem; line-height:1.5; }
-  .announce-text strong { color:var(--red); }
 </style>
 </head>
 <body>
@@ -226,16 +203,32 @@
   </div>
 </header>
 
-<!-- NAV -->
-<nav>
+<!-- DESKTOP NAV -->
+<nav class="desktop-nav">
   <button class="active" onclick="showSection('dashboard',this)">🏠 Dashboard</button>
   <button onclick="showSection('menu',this)">🍽️ Menu</button>
   <button onclick="showSection('purchase',this)">🛒 Purchase</button>
   <button onclick="showSection('cleaning',this)">🧹 Cleaning</button>
   <button onclick="showSection('cook',this)">👨‍🍳 Cook Board</button>
   <button onclick="showSection('info',this)">ℹ️ Info</button>
+  <button onclick="showSection('bills',this)">💰 Bills & Split</button>
   <button onclick="showSection('noticeboard',this)">📌 Notice Board</button>
   <button onclick="showSection('admin',this)">⚙️ Admin</button>
+</nav>
+
+<!-- MOBILE BOTTOM NAV -->
+<nav class="mobile-nav">
+  <div class="mobile-nav-inner">
+    <button class="active" onclick="showSection('dashboard',this)"><span class="mnav-icon">🏠</span>Home</button>
+    <button onclick="showSection('menu',this)"><span class="mnav-icon">🍽️</span>Menu</button>
+    <button onclick="showSection('purchase',this)"><span class="mnav-icon">🛒</span>Purchase</button>
+    <button onclick="showSection('cleaning',this)"><span class="mnav-icon">🧹</span>Cleaning</button>
+    <button onclick="showSection('cook',this)"><span class="mnav-icon">👨‍🍳</span>Cook</button>
+    <button onclick="showSection('bills',this)"><span class="mnav-icon">💰</span>Bills</button>
+    <button onclick="showSection('info',this)"><span class="mnav-icon">ℹ️</span>Info</button>
+    <button onclick="showSection('noticeboard',this)"><span class="mnav-icon">📌</span>Notice</button>
+    <button onclick="showSection('admin',this)"><span class="mnav-icon">⚙️</span>Admin</button>
+  </div>
 </nav>
 
 <main>
@@ -415,7 +408,7 @@
   <!-- PURCHASE TABLE -->
   <div class="card">
     <div class="card-title"><div class="dot"></div> All Purchase Items</div>
-    <div style="overflow-x:auto;">
+    <div class="table-wrap">
       <table>
         <thead><tr><th>Item</th><th>Qty/Amount</th><th>Assigned To</th><th>Date</th><th>Status</th><th>Action</th></tr></thead>
         <tbody id="purchase-table-body"></tbody>
@@ -496,7 +489,7 @@
   <!-- FULL SCHEDULE TABLE -->
   <div class="card">
     <div class="card-title"><div class="dot"></div> All Cleaning Tasks</div>
-    <div style="overflow-x:auto;">
+    <div class="table-wrap">
       <table>
         <thead><tr><th>Task</th><th>Area</th><th>Assigned To</th><th>Schedule</th><th>Specific Date</th><th>Notes</th><th>Status</th><th>Actions</th></tr></thead>
         <tbody id="cleaning-table-body"></tbody>
@@ -580,6 +573,33 @@
   </div>
   <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.5rem;">Anyone can post announcements, highlights and popup messages here — no login needed.</p>
 
+  <!-- PUSH NOTIFICATION ENABLE -->
+  <div class="card" style="border-color:rgba(52,152,219,0.35);">
+    <div class="card-title" style="color:var(--blue);"><div class="dot" style="background:var(--blue);"></div> 🔔 Push Notifications</div>
+    <p style="color:var(--muted);font-size:0.83rem;margin-bottom:1rem;">Enable this on your phone/browser to receive instant alerts when new announcements, menu updates or bill entries are added — even when the site is closed.</p>
+    <div id="notif-status-box" style="background:var(--surface2);border-radius:8px;padding:0.85rem 1rem;margin-bottom:1rem;display:flex;align-items:center;gap:0.75rem;">
+      <span id="notif-status-icon" style="font-size:1.4rem;">⏳</span>
+      <div>
+        <div id="notif-status-text" style="font-size:0.88rem;font-weight:600;">Checking notification status…</div>
+        <div id="notif-status-sub" style="font-size:0.76rem;color:var(--muted);margin-top:2px;"></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:0.6rem;flex-wrap:wrap;">
+      <button id="notif-enable-btn" class="btn btn-blue" onclick="requestNotifPermission()" style="display:none;">🔔 Enable Notifications</button>
+      <button id="notif-test-btn" class="btn btn-sm btn-green" onclick="sendTestNotif()" style="display:none;">🧪 Send Test Notification</button>
+    </div>
+    <!-- What notifications you'll get -->
+    <div style="margin-top:1.25rem;border-top:1px solid var(--border);padding-top:1rem;">
+      <div style="font-size:0.8rem;color:var(--muted);margin-bottom:0.5rem;">You'll be notified when:</div>
+      <div style="display:flex;flex-direction:column;gap:0.3rem;">
+        <div style="font-size:0.82rem;">📣 A new announcement is posted</div>
+        <div style="font-size:0.82rem;">🍽️ Today's menu is updated</div>
+        <div style="font-size:0.82rem;">💰 A new bill is added</div>
+        <div style="font-size:0.82rem;">👨‍🍳 Cook posts a message</div>
+      </div>
+    </div>
+  </div>
+
   <!-- POPUP EDITOR -->
   <div class="card">
     <div class="card-title"><div class="dot"></div> 📢 Set Popup Message</div>
@@ -618,6 +638,108 @@
     </div>
     <button class="btn" onclick="addHighlight()">+ Add Highlight</button>
     <div id="nb-highlights-list" style="margin-top:1.25rem;"></div>
+  </div>
+</div>
+
+<!-- ==================== BILLS & SPLIT ==================== -->
+<div id="section-bills" class="section">
+  <div class="sec-header">
+    <div class="sec-title">💰 Bills & Split</div>
+    <button class="btn btn-sm" onclick="toggleBillForm()">+ Add Bill</button>
+  </div>
+
+  <!-- ADD BILL FORM -->
+  <div id="bill-add-form" style="display:none;" class="card">
+    <div class="card-title"><div class="dot"></div> 🧾 Add New Bill</div>
+    <div class="grid-2">
+      <div class="form-row"><label>Bill Title / Description</label><input type="text" id="bill-title" placeholder="e.g. Supermarket – Groceries"></div>
+      <div class="form-row"><label>Category</label>
+        <select id="bill-category">
+          <option>🛒 Groceries</option><option>🥦 Vegetables & Fruits</option><option>🔥 Gas / LPG</option>
+          <option>💧 Water</option><option>⚡ Electricity</option><option>🧴 Cleaning Supplies</option>
+          <option>🍳 Cooking Oil & Spices</option><option>🥛 Dairy</option><option>🍗 Meat & Fish</option><option>📦 Other</option>
+        </select>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="form-row"><label>Amount (AED)</label><input type="number" id="bill-amount" placeholder="e.g. 250" min="0" step="0.01" oninput="updateSplitPreview()"></div>
+      <div class="form-row"><label>Paid By</label><input type="text" id="bill-paidby" placeholder="Member name" list="members-list"></div>
+    </div>
+    <div class="form-row"><label>Date</label><input type="date" id="bill-date"></div>
+
+    <!-- SPLIT OPTIONS -->
+    <div style="margin:1rem 0 0.5rem;font-size:0.82rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Split Among</div>
+
+    <!-- MODE BUTTONS -->
+    <div style="display:flex;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap;">
+      <button id="split-btn-all"    onclick="setSplitMode('all')"    style="background:var(--green);color:#000;border:none;border-radius:8px;padding:0.5rem 1rem;font-family:'Syne',sans-serif;font-weight:700;font-size:0.82rem;cursor:pointer;">👥 All Members</button>
+      <button id="split-btn-custom" onclick="setSplitMode('custom')" style="background:var(--surface2);color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:0.5rem 1rem;font-family:'Syne',sans-serif;font-weight:700;font-size:0.82rem;cursor:pointer;">✏️ Choose Members</button>
+    </div>
+
+    <!-- ALL MODE: preview -->
+    <div id="split-all-preview" style="background:var(--surface2);border-radius:8px;padding:0.75rem 1rem;margin-bottom:1rem;font-size:0.85rem;color:var(--muted);">
+      Splitting equally among <strong id="split-all-count" style="color:var(--green);">all members</strong>
+    </div>
+
+    <!-- CUSTOM MODE: tick boxes — each member a big tap-friendly tile -->
+    <div id="split-custom-members" style="display:none;margin-bottom:1rem;">
+      <div style="font-size:0.82rem;color:var(--muted);margin-bottom:0.6rem;">
+        Tap to select — highlighted = included in split:
+        <button onclick="selectAllMembers()" style="margin-left:0.5rem;background:none;border:1px solid var(--blue);color:var(--blue);border-radius:5px;padding:0.15rem 0.5rem;font-size:0.75rem;cursor:pointer;">Select All</button>
+        <button onclick="clearAllMembers()" style="margin-left:0.3rem;background:none;border:1px solid var(--muted);color:var(--muted);border-radius:5px;padding:0.15rem 0.5rem;font-size:0.75rem;cursor:pointer;">Clear</button>
+      </div>
+      <div id="split-members-checkboxes" style="display:flex;flex-wrap:wrap;gap:0.5rem;"></div>
+      <div style="margin-top:0.6rem;font-size:0.82rem;color:var(--muted);">
+        Selected: <strong id="split-selected-count" style="color:var(--accent);">0</strong> members —
+        Per person: <strong id="split-per-person-preview" style="color:var(--accent);">AED 0</strong>
+      </div>
+    </div>
+
+    <div class="form-row"><label>Notes (optional)</label><input type="text" id="bill-notes" placeholder="e.g. Monthly stock from Lulu"></div>
+    <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
+      <button class="btn" onclick="addBill()">💾 Save Bill</button>
+      <button class="btn btn-sm" style="background:var(--surface2);color:var(--muted);border:1px solid var(--border);" onclick="toggleBillForm()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- MONTH FILTER -->
+  <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.5rem;flex-wrap:wrap;">
+    <label style="font-size:0.82rem;color:var(--muted);">Filter by month:</label>
+    <select id="bill-month-filter" onchange="renderBills()" style="width:auto;padding:0.4rem 0.8rem;">
+      <!-- populated by JS -->
+    </select>
+    <button class="btn btn-sm" style="background:var(--surface2);color:var(--muted);border:1px solid var(--border);" onclick="document.getElementById('bill-month-filter').value='all';renderBills()">Show All</button>
+  </div>
+
+  <!-- SUMMARY CARDS -->
+  <div class="grid-3" style="margin-bottom:1.5rem;" id="bill-summary-cards">
+    <div class="stat-card"><div class="stat-number" id="bill-stat-total">AED 0</div><div class="stat-label">Total Bills</div></div>
+    <div class="stat-card"><div class="stat-number" id="bill-stat-count">0</div><div class="stat-label">No. of Bills</div></div>
+    <div class="stat-card"><div class="stat-number" id="bill-stat-per-head">AED 0</div><div class="stat-label">Per Person (avg)</div></div>
+  </div>
+
+  <!-- PER PERSON BALANCES -->
+  <div class="card" style="margin-bottom:1.5rem;">
+    <div class="card-title"><div class="dot"></div> 👤 Per Person Balance</div>
+    <p style="color:var(--muted);font-size:0.82rem;margin-bottom:1rem;">🟢 Green = Paid more than share (others owe them) &nbsp; 🔴 Red = Owes money</p>
+    <div id="bill-per-person"></div>
+  </div>
+
+  <!-- WHO OWES WHOM -->
+  <div class="card" style="margin-bottom:1.5rem;">
+    <div class="card-title"><div class="dot"></div> 🔄 Settlement Summary</div>
+    <div id="bill-settlement"></div>
+  </div>
+
+  <!-- BILLS LIST -->
+  <div class="card">
+    <div class="card-title"><div class="dot"></div> 🧾 All Bills</div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Date</th><th>Title</th><th>Category</th><th>Amount</th><th>Paid By</th><th>Split</th><th>Per Person</th><th>Del</th></tr></thead>
+        <tbody id="bills-table-body"></tbody>
+      </table>
+    </div>
   </div>
 </div>
 
@@ -678,6 +800,40 @@
       </div>
       <div id="members-display"></div>
       <datalist id="members-list"></datalist>
+    </div>
+
+    <!-- QUICK SETUP — bulk re-enter all data fast -->
+    <div class="card" style="border-color:rgba(52,152,219,0.35);">
+      <div class="card-title" style="color:var(--blue);"><div class="dot" style="background:var(--blue);"></div> ⚡ Quick Setup — Bulk Entry</div>
+      <p style="color:var(--muted);font-size:0.83rem;margin-bottom:1.25rem;">Use this to quickly re-enter all your members and menu in one go — no need to do them one by one.</p>
+
+      <!-- BULK MEMBERS -->
+      <div style="margin-bottom:1.5rem;">
+        <label style="font-size:0.85rem;font-weight:600;color:var(--text);display:block;margin-bottom:0.4rem;">👥 All Member Names</label>
+        <p style="font-size:0.78rem;color:var(--muted);margin-bottom:0.5rem;">Enter one name per line. This will <strong>replace</strong> the current members list.</p>
+        <textarea id="bulk-members" rows="6" placeholder="e.g.&#10;Rashid&#10;Ahmed&#10;Vijay&#10;Kiran&#10;Santhosh&#10;Arjun"></textarea>
+        <button class="btn btn-sm btn-blue" style="margin-top:0.6rem;" onclick="bulkSaveMembers()">💾 Save All Members</button>
+      </div>
+
+      <!-- BULK MENU — Lunch -->
+      <div style="margin-bottom:1.5rem;">
+        <label style="font-size:0.85rem;font-weight:600;color:var(--text);display:block;margin-bottom:0.4rem;">🌞 Weekly Lunch Menu</label>
+        <p style="font-size:0.78rem;color:var(--muted);margin-bottom:0.75rem;">Fill each day's lunch. Main dish required, sides are comma-separated (optional).</p>
+        <div id="bulk-lunch-fields">
+          <!-- Generated by JS -->
+        </div>
+        <button class="btn btn-sm btn-green" style="margin-top:0.4rem;" onclick="bulkSaveMenu('lunch')">💾 Save Lunch Menu</button>
+      </div>
+
+      <!-- BULK MENU — Dinner -->
+      <div style="margin-bottom:0.5rem;">
+        <label style="font-size:0.85rem;font-weight:600;color:var(--text);display:block;margin-bottom:0.4rem;">🌙 Weekly Dinner Menu</label>
+        <p style="font-size:0.78rem;color:var(--muted);margin-bottom:0.75rem;">Fill each day's dinner. Main dish required, sides are comma-separated (optional).</p>
+        <div id="bulk-dinner-fields">
+          <!-- Generated by JS -->
+        </div>
+        <button class="btn btn-sm" style="margin-top:0.4rem;background:#9b59b6;color:#fff;border:none;border-radius:8px;padding:0.35rem 0.75rem;font-family:Syne,sans-serif;font-weight:700;font-size:0.78rem;cursor:pointer;" onclick="bulkSaveMenu('dinner')">💾 Save Dinner Menu</button>
+      </div>
     </div>
 
     <!-- SITE NAME CHANGER (admin only) -->
@@ -756,6 +912,7 @@ const DEFAULTS = {
   popup:       {title:'Welcome to Rashidiya Room Mess!', body:"Check today's menu and your assigned duties!"},
   announcement:'',
   cleanDone:   {},
+  bills:       [],
   adminUser:   'admin',
   adminPass:   'room1234',
   siteName:    'Rashidiya Room Mess',
@@ -826,23 +983,29 @@ function init(){
   }
   renderAll();
   renderSiteName();
+  initNotifications();
 }
 
 function renderAll(){
   renderMembers(); renderPurchase(); renderCleaning(); renderMenu();
   renderCookMsgs(); renderCookGrocery(); renderDashboard(); renderHighlights();
-  renderInfoBlocks();
+  renderInfoBlocks(); renderBills();
 }
 
 // ========== SECTION NAV ==========
 function showSection(id, btn){
   document.querySelectorAll('.section').forEach(function(s){s.classList.remove('active');});
+  // sync both navs
   document.querySelectorAll('nav button').forEach(function(b){b.classList.remove('active');});
+  // activate all buttons matching this section across both navs
+  document.querySelectorAll('nav button').forEach(function(b){
+    if(b.getAttribute('onclick')&&b.getAttribute('onclick').indexOf("'"+id+"'")>-1) b.classList.add('active');
+  });
   document.getElementById('section-'+id).classList.add('active');
-  if(btn) btn.classList.add('active');
   if(id==='admin')       renderAdminPanel();
   if(id==='info')        renderInfoBlocks();
   if(id==='noticeboard') renderNoticeboard();
+  if(id==='bills')       renderBills();
 }
 
 // ========== MEMBERS ==========
@@ -1036,6 +1199,7 @@ function postCookMessage(){
   var name=document.getElementById('cook-name').value.trim(); var msg=document.getElementById('cook-msg-input').value.trim(); if(!name||!msg) return alert('Enter name and message');
   data.cookMsgs.unshift({name:name,msg:msg,time:now.toLocaleString('en-IN'),id:Date.now()});
   document.getElementById('cook-name').value=''; document.getElementById('cook-msg-input').value='';
+  notifyCookMessage(name, msg);
   save(); renderCookMsgs(); renderDashboard();
 }
 function deleteCookMsg(id){ data.cookMsgs=data.cookMsgs.filter(function(x){return x.id!==id;}); save(); renderCookMsgs(); renderDashboard(); }
@@ -1132,7 +1296,75 @@ function doAdminLogin(){
   else { err.style.display='block'; document.getElementById('admin-password-input').value=''; }
 }
 function adminLogout(){ adminLoggedIn=false; document.getElementById('admin-login-gate').style.display='block'; document.getElementById('admin-panel').style.display='none'; renderInfoBlocks(); }
-function renderAdminPanel(){ if(!adminLoggedIn) return; renderMembers(); renderAdminHLList(); renderAdminInfoManager(); var sp=document.getElementById('site-name-preview'); if(sp) sp.textContent=data.siteName||'RoomBoss'; }
+function renderAdminPanel(){
+  if(!adminLoggedIn) return;
+  renderMembers(); renderAdminHLList(); renderAdminInfoManager();
+  var sp=document.getElementById('site-name-preview'); if(sp) sp.textContent=data.siteName||'RoomBoss';
+  renderBulkMenuFields();
+}
+
+// ========== QUICK SETUP / BULK ENTRY ==========
+var bulkDays=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+
+function renderBulkMenuFields(){
+  ['lunch','dinner'].forEach(function(meal){
+    var el=document.getElementById('bulk-'+meal+'-fields'); if(!el) return;
+    el.innerHTML=bulkDays.map(function(d){
+      var saved=(data.menu[d]&&data.menu[d][meal])||null;
+      var defM=meal==='lunch'?defaultMenu[d].lunch:defaultMenu[d].dinner;
+      var mainVal=saved?saved.main:(defM?defM.main:'');
+      var sidesVal=saved?(saved.sides||[]).join(', '):(defM?(defM.sides||[]).join(', '):'');
+      return '<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:0.85rem;margin-bottom:0.6rem;">' +
+        '<div style="font-family:Syne,sans-serif;font-weight:700;font-size:0.88rem;color:var(--accent);margin-bottom:0.5rem;">'+d+'</div>' +
+        '<div class="grid-2">' +
+          '<div class="form-row" style="margin-bottom:0;">' +
+            '<label>Main Dish</label>' +
+            '<input type="text" id="bulk-'+meal+'-'+d+'-main" value="'+mainVal+'" placeholder="e.g. Rice & Dal">' +
+          '</div>' +
+          '<div class="form-row" style="margin-bottom:0;">' +
+            '<label>Sides (comma separated)</label>' +
+            '<input type="text" id="bulk-'+meal+'-'+d+'-sides" value="'+sidesVal+'" placeholder="e.g. Pickle, Salad">' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  });
+
+  // Pre-fill members textarea
+  var bm=document.getElementById('bulk-members');
+  if(bm&&data.members&&data.members.length) bm.value=data.members.join('\n');
+}
+
+function bulkSaveMembers(){
+  var raw=document.getElementById('bulk-members').value.trim();
+  if(!raw) return alert('Enter at least one member name');
+  var names=raw.split('\n').map(function(n){return n.trim();}).filter(function(n){return n.length>0;});
+  if(!names.length) return alert('No valid names found');
+  data.members=names;
+  save(); renderMembers(); renderBulkMenuFields();
+  alert('✅ '+names.length+' members saved!');
+}
+
+function bulkSaveMenu(meal){
+  var saved=0;
+  bulkDays.forEach(function(d){
+    var mainEl=document.getElementById('bulk-'+meal+'-'+d+'-main');
+    var sidesEl=document.getElementById('bulk-'+meal+'-'+d+'-sides');
+    if(!mainEl) return;
+    var main=mainEl.value.trim();
+    if(!main) return;
+    if(!data.menu[d]) data.menu[d]={};
+    data.menu[d][meal]={
+      main:main,
+      desc:'',
+      sides:sidesEl.value?sidesEl.value.split(',').map(function(s){return s.trim();}).filter(Boolean):[]
+    };
+    saved++;
+  });
+  if(!saved) return alert('Enter at least one day\'s main dish');
+  save(); renderMenu(); renderDashboard();
+  alert('✅ '+meal.charAt(0).toUpperCase()+meal.slice(1)+' menu saved for '+saved+' days!');
+}
 function togglePwdVisibility(inputId,btn){ var inp=document.getElementById(inputId); if(inp.type==='password'){inp.type='text';btn.textContent='🙈';}else{inp.type='password';btn.textContent='👁';} }
 function changeAdminCredentials(){
   var u=document.getElementById('new-uname').value.trim(); var p=document.getElementById('new-pwd').value; var c=document.getElementById('confirm-pwd').value;
@@ -1157,7 +1389,9 @@ function postAnnouncement(){
   data.announcement=text; save();
   document.getElementById('announce-text').textContent=text;
   document.getElementById('announce-banner').style.display='flex';
-  document.getElementById('announce-input').value=''; renderNoticeboard();
+  document.getElementById('announce-input').value='';
+  notifyAnnouncement(text);
+  renderNoticeboard();
 }
 function clearAnnouncement(){ data.announcement=''; save(); document.getElementById('announce-banner').style.display='none'; renderNoticeboard(); }
 
@@ -1203,6 +1437,371 @@ function renderDashboard(){
   var cookEl=document.getElementById('dash-cook-latest');
   if(cookEl){ if(data.cookMsgs.length){ var m2=data.cookMsgs[0]; cookEl.innerHTML='<div class="cook-msg"><div class="cook-msg-header"><div class="cook-avatar">'+m2.name[0]+'</div><div><div class="cook-msg-name">'+m2.name+'</div><div class="cook-msg-time">'+m2.time+'</div></div></div><div class="cook-msg-body">'+m2.msg+'</div></div>'; } else cookEl.innerHTML='<div style="color:var(--muted);font-size:0.88rem;">No messages yet.</div>'; }
 }
+// ========== BILLS & SPLIT ==========
+var billSplitMode = 'all';
+
+function toggleBillForm(){
+  var f=document.getElementById('bill-add-form');
+  f.style.display=f.style.display==='none'?'block':'none';
+  if(f.style.display==='block'){
+    // Set today's date
+    document.getElementById('bill-date').value=now.toISOString().split('T')[0];
+    // Render member checkboxes
+    renderSplitCheckboxes();
+  }
+}
+
+function setSplitMode(mode){
+  billSplitMode=mode;
+  var allBtn=document.getElementById('split-btn-all');
+  var cusBtn=document.getElementById('split-btn-custom');
+  var allPrev=document.getElementById('split-all-preview');
+  var cusDev=document.getElementById('split-custom-members');
+  if(mode==='all'){
+    allBtn.style.background='var(--green)'; allBtn.style.color='#000';
+    cusBtn.style.background='var(--surface2)'; cusBtn.style.color='var(--muted)'; cusBtn.style.border='1px solid var(--border)';
+    allPrev.style.display='block'; cusDev.style.display='none';
+    document.getElementById('split-all-count').textContent='all '+data.members.length+' members';
+  } else {
+    cusBtn.style.background='var(--blue)'; cusBtn.style.color='#fff'; cusBtn.style.border='none';
+    allBtn.style.background='var(--surface2)'; allBtn.style.color='var(--muted)';
+    allPrev.style.display='none'; cusDev.style.display='block';
+    renderSplitCheckboxes();
+  }
+}
+
+function renderSplitCheckboxes(){
+  var el=document.getElementById('split-members-checkboxes'); if(!el) return;
+  // Start with NONE selected so user explicitly picks
+  el.innerHTML=data.members.map(function(m){
+    return '<div id="split-tile-'+m.replace(/\s/g,'_')+'" onclick="toggleSplitMember(\''+m+'\')" style="'+
+      'display:flex;align-items:center;gap:0.5rem;padding:0.6rem 1rem;border-radius:8px;cursor:pointer;'+
+      'background:var(--surface2);border:2px solid var(--border);transition:all 0.15s;user-select:none;'+
+      'min-width:100px;justify-content:center;">' +
+      '<span id="split-check-'+m.replace(/\s/g,'_')+'">☐</span>' +
+      '<span style="font-size:0.88rem;font-weight:600;">'+m+'</span>' +
+    '</div>';
+  }).join('');
+  updateSplitPreview();
+}
+
+function toggleSplitMember(name){
+  var key=name.replace(/\s/g,'_');
+  var tile=document.getElementById('split-tile-'+key);
+  var chk=document.getElementById('split-check-'+key);
+  if(!tile||!chk) return;
+  var selected=tile.getAttribute('data-selected')==='1';
+  if(selected){
+    tile.setAttribute('data-selected','0');
+    tile.style.background='var(--surface2)'; tile.style.borderColor='var(--border)';
+    chk.textContent='☐';
+  } else {
+    tile.setAttribute('data-selected','1');
+    tile.style.background='rgba(52,152,219,0.15)'; tile.style.borderColor='var(--blue)';
+    chk.textContent='☑';
+  }
+  updateSplitPreview();
+}
+
+function selectAllMembers(){
+  data.members.forEach(function(m){
+    var key=m.replace(/\s/g,'_');
+    var tile=document.getElementById('split-tile-'+key);
+    var chk=document.getElementById('split-check-'+key);
+    if(tile){ tile.setAttribute('data-selected','1'); tile.style.background='rgba(52,152,219,0.15)'; tile.style.borderColor='var(--blue)'; }
+    if(chk) chk.textContent='☑';
+  });
+  updateSplitPreview();
+}
+
+function updateSplitPreview(){
+  var selected=getSelectedSplitMembers();
+  var cnt=document.getElementById('split-selected-count'); if(cnt) cnt.textContent=selected.length;
+  var amt=parseFloat(document.getElementById('bill-amount').value)||0;
+  var pp=document.getElementById('split-per-person-preview');
+  if(pp) pp.textContent=selected.length>0?'AED '+(amt/selected.length).toFixed(2):'AED 0';
+}
+
+function getSelectedSplitMembers(){
+  if(billSplitMode==='all') return data.members.slice();
+  var selected=[];
+  data.members.forEach(function(m){
+    var key=m.replace(/\s/g,'_');
+    var tile=document.getElementById('split-tile-'+key);
+    if(tile&&tile.getAttribute('data-selected')==='1') selected.push(m);
+  });
+  return selected.length>0?selected:[];
+}
+
+function clearAllMembers(){
+  data.members.forEach(function(m){
+    var key=m.replace(/\s/g,'_');
+    var tile=document.getElementById('split-tile-'+key);
+    var chk=document.getElementById('split-check-'+key);
+    if(tile){ tile.setAttribute('data-selected','0'); tile.style.background='var(--surface2)'; tile.style.borderColor='var(--border)'; }
+    if(chk) chk.textContent='☐';
+  });
+  updateSplitPreview();
+}
+
+function addBill(){
+  var title=document.getElementById('bill-title').value.trim();
+  var amount=parseFloat(document.getElementById('bill-amount').value);
+  var paidBy=document.getElementById('bill-paidby').value.trim();
+  var date=document.getElementById('bill-date').value;
+  if(!title) return alert('Enter bill title');
+  if(!amount||isNaN(amount)||amount<=0) return alert('Enter a valid amount');
+  if(!paidBy) return alert('Enter who paid');
+  if(!date) return alert('Select a date');
+  var splitMembers=getSelectedSplitMembers();
+  if(splitMembers.length===0) return alert('Please select at least one member to split the bill with');
+  var bill={
+    id:Date.now(),
+    title:title,
+    category:document.getElementById('bill-category').value,
+    amount:Math.round(amount*100)/100,
+    paidBy:paidBy,
+    date:date,
+    splitAmong:splitMembers,
+    perPerson:Math.round((amount/splitMembers.length)*100)/100,
+    notes:document.getElementById('bill-notes').value.trim()
+  };
+  notifyNewBill(bill.title, bill.amount.toFixed(2), bill.paidBy);
+  if(!data.bills) data.bills=[];
+  data.bills.unshift(bill);
+  document.getElementById('bill-title').value=''; document.getElementById('bill-amount').value='';
+  document.getElementById('bill-paidby').value=''; document.getElementById('bill-notes').value='';
+  document.getElementById('bill-add-form').style.display='none';
+  billSplitMode='all'; setSplitMode('all');
+  save(); renderBills();
+}
+
+function deleteBill(id){
+  if(!confirm('Delete this bill?')) return;
+  data.bills=data.bills.filter(function(b){return b.id!==id;});
+  save(); renderBills();
+}
+
+function renderBills(){
+  if(!data.bills) data.bills=[];
+  // Populate month filter
+  var mf=document.getElementById('bill-month-filter'); if(!mf) return;
+  var months={};
+  data.bills.forEach(function(b){ var m=b.date?b.date.slice(0,7):''; if(m) months[m]=true; });
+  var monthKeys=Object.keys(months).sort().reverse();
+  var curVal=mf.value;
+  mf.innerHTML='<option value="all">All Months</option>'+
+    monthKeys.map(function(m){
+      var d=new Date(m+'-01');
+      var label=d.toLocaleDateString('en-IN',{month:'long',year:'numeric'});
+      return '<option value="'+m+'">'+label+'</option>';
+    }).join('');
+  // Restore selection or default to current month
+  var curMonth=now.toISOString().slice(0,7);
+  if(curVal) mf.value=curVal;
+  else if(months[curMonth]) mf.value=curMonth;
+
+  var filter=mf.value;
+  var filtered=filter==='all'?data.bills:data.bills.filter(function(b){return b.date&&b.date.startsWith(filter);});
+
+  // Stats
+  var total=filtered.reduce(function(s,b){return s+b.amount;},0);
+  var st=document.getElementById('bill-stat-total'); if(st) st.textContent='AED '+total.toFixed(2);
+  var sc=document.getElementById('bill-stat-count'); if(sc) sc.textContent=filtered.length;
+  var sph=document.getElementById('bill-stat-per-head');
+  if(sph){ var members=data.members.length||1; sph.textContent='AED '+(total/members).toFixed(2); }
+
+  // Per-person balances
+  var paid={};   // how much each person paid
+  var share={};  // how much each person owes
+  data.members.forEach(function(m){ paid[m]=0; share[m]=0; });
+  filtered.forEach(function(b){
+    if(paid[b.paidBy]!==undefined) paid[b.paidBy]+=b.amount;
+    else paid[b.paidBy]=b.amount;
+    var pp=b.perPerson;
+    b.splitAmong.forEach(function(m){
+      if(share[m]!==undefined) share[m]+=pp;
+      else share[m]=pp;
+    });
+  });
+
+  // balance = paid - share  (positive = others owe you, negative = you owe)
+  var balance={};
+  var allPeople=new Set(Object.keys(paid).concat(Object.keys(share)));
+  allPeople.forEach(function(m){ balance[m]=Math.round(((paid[m]||0)-(share[m]||0))*100)/100; });
+
+  var ppEl=document.getElementById('bill-per-person'); if(!ppEl) return;
+  if(!filtered.length){ ppEl.innerHTML='<div style="color:var(--muted);font-size:0.88rem;">No bills yet.</div>'; }
+  else {
+    ppEl.innerHTML=Array.from(allPeople).map(function(m){
+      var p=paid[m]||0; var s=share[m]||0; var b=balance[m]||0;
+      var positive=b>=0;
+      var barW=total>0?Math.min(100,Math.abs(b)/total*100*data.members.length):0;
+      return '<div style="padding:1rem 0;border-bottom:1px solid var(--border);">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">' +
+          '<div style="display:flex;align-items:center;gap:0.75rem;">' +
+            '<div style="width:36px;height:36px;border-radius:50%;background:'+(positive?'rgba(46,204,113,0.2)':'rgba(231,76,60,0.2)')+';display:flex;align-items:center;justify-content:center;font-family:Syne,sans-serif;font-weight:800;color:'+(positive?'var(--green)':'var(--red)')+';">'+m[0].toUpperCase()+'</div>' +
+            '<div><div style="font-weight:600;font-size:0.95rem;">'+m+'</div>' +
+            '<div style="font-size:0.78rem;color:var(--muted);">Paid: AED '+p.toFixed(2)+' &nbsp;|&nbsp; Share: AED '+s.toFixed(2)+'</div></div>' +
+          '</div>' +
+          '<div style="text-align:right;">' +
+            '<div style="font-family:Syne,sans-serif;font-weight:800;font-size:1.1rem;color:'+(positive?'var(--green)':'var(--red)')+';">'+(positive?'+':'')+b.toFixed(2)+' AED</div>' +
+            '<div style="font-size:0.75rem;color:var(--muted);">'+(positive?'To receive':'Owes')+'</div>' +
+          '</div>' +
+        '</div>' +
+        '<div style="height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;">' +
+          '<div style="height:100%;width:'+barW+'%;background:'+(positive?'var(--green)':'var(--red)')+';border-radius:3px;transition:width 0.4s;"></div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  // Settlement: who pays whom
+  var settEl=document.getElementById('bill-settlement'); if(!settEl) return;
+  if(!filtered.length){ settEl.innerHTML='<div style="color:var(--muted);font-size:0.88rem;">No bills to settle.</div>'; return; }
+  // Simple greedy settlement
+  var debtors=[], creditors=[];
+  allPeople.forEach(function(m){
+    var b=balance[m]||0;
+    if(b<-0.01) debtors.push({name:m,amount:-b});
+    else if(b>0.01) creditors.push({name:m,amount:b});
+  });
+  debtors.sort(function(a,b){return b.amount-a.amount;});
+  creditors.sort(function(a,b){return b.amount-a.amount;});
+  var txns=[];
+  var di=0, ci=0;
+  while(di<debtors.length&&ci<creditors.length){
+    var d=debtors[di], c=creditors[ci];
+    var amt=Math.min(d.amount,c.amount);
+    if(amt>0.01) txns.push({from:d.name,to:c.name,amount:Math.round(amt*100)/100});
+    d.amount-=amt; c.amount-=amt;
+    if(d.amount<0.01) di++;
+    if(c.amount<0.01) ci++;
+  }
+  if(!txns.length){ settEl.innerHTML='<div style="color:var(--green);font-size:0.88rem;">✅ All settled! No payments needed.</div>'; }
+  else {
+    settEl.innerHTML='<div style="font-size:0.82rem;color:var(--muted);margin-bottom:1rem;">To settle all balances, these payments need to be made:</div>'+
+      txns.map(function(t){
+        return '<div style="display:flex;align-items:center;gap:0.75rem;padding:0.75rem;background:var(--surface2);border-radius:8px;margin-bottom:0.5rem;flex-wrap:wrap;">' +
+          '<div style="width:32px;height:32px;border-radius:50%;background:rgba(231,76,60,0.2);display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--red);font-size:0.85rem;">'+t.from[0]+'</div>' +
+          '<strong style="color:var(--text);">'+t.from+'</strong>' +
+          '<span style="color:var(--muted);">→ pays →</span>' +
+          '<div style="width:32px;height:32px;border-radius:50%;background:rgba(46,204,113,0.2);display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--green);font-size:0.85rem;">'+t.to[0]+'</div>' +
+          '<strong style="color:var(--text);">'+t.to+'</strong>' +
+          '<span style="margin-left:auto;font-family:Syne,sans-serif;font-weight:800;font-size:1.05rem;color:var(--accent);">AED '+t.amount.toFixed(2)+'</span>' +
+        '</div>';
+      }).join('');
+  }
+
+  // Bills table
+  var tbody=document.getElementById('bills-table-body'); if(!tbody) return;
+  if(!filtered.length){ tbody.innerHTML='<tr><td colspan="8" style="color:var(--muted);text-align:center;padding:1.5rem;">No bills yet. Add one above.</td></tr>'; return; }
+  tbody.innerHTML=filtered.map(function(b){
+    return '<tr>' +
+      '<td style="font-size:0.82rem;">'+b.date+'</td>' +
+      '<td><strong>'+b.title+'</strong>'+(b.notes?'<div style="font-size:0.75rem;color:var(--muted);">'+b.notes+'</div>':'')+'</td>' +
+      '<td><span style="font-size:0.78rem;">'+b.category+'</span></td>' +
+      '<td><strong style="color:var(--accent);">AED '+b.amount.toFixed(2)+'</strong></td>' +
+      '<td><span class="badge badge-blue">'+b.paidBy+'</span></td>' +
+      '<td style="font-size:0.78rem;color:var(--muted);">'+b.splitAmong.join(', ')+'</td>' +
+      '<td><span class="badge badge-yellow">AED '+b.perPerson.toFixed(2)+'</span></td>' +
+      '<td><button class="del-btn" onclick="deleteBill('+b.id+')">✕</button></td>' +
+    '</tr>';
+  }).join('');
+}
+
+// ========== PUSH NOTIFICATIONS ==========
+function initNotifications(){
+  updateNotifStatusUI();
+}
+
+function updateNotifStatusUI(){
+  var icon=document.getElementById('notif-status-icon');
+  var text=document.getElementById('notif-status-text');
+  var sub=document.getElementById('notif-status-sub');
+  var enableBtn=document.getElementById('notif-enable-btn');
+  var testBtn=document.getElementById('notif-test-btn');
+  if(!icon||!text) return;
+
+  if(!('Notification' in window)){
+    icon.textContent='❌';
+    text.textContent='Not supported on this browser';
+    sub.textContent='Try Chrome or Firefox on Android';
+    return;
+  }
+  var perm=Notification.permission;
+  if(perm==='granted'){
+    icon.textContent='✅';
+    text.textContent='Notifications are ON';
+    text.style.color='var(--green)';
+    sub.textContent='You will receive alerts on this device';
+    if(enableBtn) enableBtn.style.display='none';
+    if(testBtn) testBtn.style.display='inline-block';
+  } else if(perm==='denied'){
+    icon.textContent='🚫';
+    text.textContent='Notifications are blocked';
+    text.style.color='var(--red)';
+    sub.textContent='Go to browser Settings → Site Settings → Notifications → Allow for this site';
+    if(enableBtn) enableBtn.style.display='none';
+    if(testBtn) testBtn.style.display='none';
+  } else {
+    icon.textContent='🔕';
+    text.textContent='Notifications are not enabled yet';
+    text.style.color='var(--muted)';
+    sub.textContent='Click the button below to receive alerts on this device';
+    if(enableBtn) enableBtn.style.display='inline-block';
+    if(testBtn) testBtn.style.display='none';
+  }
+}
+
+function requestNotifPermission(){
+  if(!('Notification' in window)) return alert('Your browser does not support notifications. Try Chrome on Android.');
+  Notification.requestPermission().then(function(perm){
+    updateNotifStatusUI();
+    if(perm==='granted'){
+      pushNotif('🎉 Rashidiya Room Mess','Notifications enabled! You\'ll now get alerts for menu, bills and announcements.','📌');
+    }
+  });
+}
+
+function sendTestNotif(){
+  pushNotif('🧪 Test Notification','This is a test from Rashidiya Room Mess. Notifications are working!','✅');
+}
+
+function pushNotif(title, body, icon){
+  if(!('Notification' in window)||Notification.permission!=='granted') return;
+  // Use service worker for better mobile support
+  if(navigator.serviceWorker && navigator.serviceWorker.controller){
+    navigator.serviceWorker.ready.then(function(reg){
+      reg.showNotification(title,{
+        body:body,
+        icon:'https://em-content.zobj.net/source/apple/354/house_1f3e0.png',
+        badge:'https://em-content.zobj.net/source/apple/354/house_1f3e0.png',
+        tag:'rashidiya-mess',
+        vibrate:[200,100,200],
+        data:{url:window.location.href}
+      });
+    });
+  } else {
+    // Fallback: direct notification
+    new Notification(title,{body:body,icon:'https://em-content.zobj.net/source/apple/354/house_1f3e0.png'});
+  }
+}
+
+// Auto-notify on key events
+function notifyAnnouncement(text){
+  pushNotif('📣 New Announcement — Rashidiya Room Mess', text, '📣');
+}
+function notifyMenuUpdate(day, meal, dish){
+  pushNotif('🍽️ Menu Updated — '+day+' '+meal, dish+' has been set for '+meal.toLowerCase(), '🍽️');
+}
+function notifyNewBill(title, amount, paidBy){
+  pushNotif('💰 New Bill Added', paidBy+' paid AED '+amount+' for '+title, '💰');
+}
+function notifyCookMessage(cookName, msg){
+  pushNotif('👨‍🍳 Message from '+cookName, msg.slice(0,80)+(msg.length>80?'…':''), '👨‍🍳');
+}
+
 // these are already global (var/function in plain script) — no window.assign needed
 </script>
 </body>
