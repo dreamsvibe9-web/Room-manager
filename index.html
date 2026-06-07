@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bachelor Room Manager</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script>
+// Register Service Worker for push notifications
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('./sw.js').then(function(reg){
+    console.log('SW registered:', reg.scope);
+  }).catch(function(err){ console.log('SW error:', err); });
+}
+</script>
 <style>
   :root {
     --bg:#0f0f13; --surface:#1a1a22; --surface2:#22222e;
@@ -565,6 +573,33 @@
   </div>
   <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.5rem;">Anyone can post announcements, highlights and popup messages here — no login needed.</p>
 
+  <!-- PUSH NOTIFICATION ENABLE -->
+  <div class="card" style="border-color:rgba(52,152,219,0.35);">
+    <div class="card-title" style="color:var(--blue);"><div class="dot" style="background:var(--blue);"></div> 🔔 Push Notifications</div>
+    <p style="color:var(--muted);font-size:0.83rem;margin-bottom:1rem;">Enable this on your phone/browser to receive instant alerts when new announcements, menu updates or bill entries are added — even when the site is closed.</p>
+    <div id="notif-status-box" style="background:var(--surface2);border-radius:8px;padding:0.85rem 1rem;margin-bottom:1rem;display:flex;align-items:center;gap:0.75rem;">
+      <span id="notif-status-icon" style="font-size:1.4rem;">⏳</span>
+      <div>
+        <div id="notif-status-text" style="font-size:0.88rem;font-weight:600;">Checking notification status…</div>
+        <div id="notif-status-sub" style="font-size:0.76rem;color:var(--muted);margin-top:2px;"></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:0.6rem;flex-wrap:wrap;">
+      <button id="notif-enable-btn" class="btn btn-blue" onclick="requestNotifPermission()" style="display:none;">🔔 Enable Notifications</button>
+      <button id="notif-test-btn" class="btn btn-sm btn-green" onclick="sendTestNotif()" style="display:none;">🧪 Send Test Notification</button>
+    </div>
+    <!-- What notifications you'll get -->
+    <div style="margin-top:1.25rem;border-top:1px solid var(--border);padding-top:1rem;">
+      <div style="font-size:0.8rem;color:var(--muted);margin-bottom:0.5rem;">You'll be notified when:</div>
+      <div style="display:flex;flex-direction:column;gap:0.3rem;">
+        <div style="font-size:0.82rem;">📣 A new announcement is posted</div>
+        <div style="font-size:0.82rem;">🍽️ Today's menu is updated</div>
+        <div style="font-size:0.82rem;">💰 A new bill is added</div>
+        <div style="font-size:0.82rem;">👨‍🍳 Cook posts a message</div>
+      </div>
+    </div>
+  </div>
+
   <!-- POPUP EDITOR -->
   <div class="card">
     <div class="card-title"><div class="dot"></div> 📢 Set Popup Message</div>
@@ -627,20 +662,37 @@
       </div>
     </div>
     <div class="grid-2">
-      <div class="form-row"><label>Amount (AED)</label><input type="number" id="bill-amount" placeholder="e.g. 250" min="0" step="0.01"></div>
+      <div class="form-row"><label>Amount (AED)</label><input type="number" id="bill-amount" placeholder="e.g. 250" min="0" step="0.01" oninput="updateSplitPreview()"></div>
       <div class="form-row"><label>Paid By</label><input type="text" id="bill-paidby" placeholder="Member name" list="members-list"></div>
     </div>
     <div class="form-row"><label>Date</label><input type="date" id="bill-date"></div>
 
     <!-- SPLIT OPTIONS -->
     <div style="margin:1rem 0 0.5rem;font-size:0.82rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Split Among</div>
-    <div style="display:flex;gap:0.6rem;margin-bottom:1rem;flex-wrap:wrap;">
-      <button id="split-btn-all" class="btn btn-sm btn-green" onclick="setSplitMode('all')">👥 All Members</button>
-      <button id="split-btn-custom" class="btn btn-sm" style="background:var(--surface2);color:var(--muted);border:1px solid var(--border);" onclick="setSplitMode('custom')">✏️ Choose Members</button>
+
+    <!-- MODE BUTTONS -->
+    <div style="display:flex;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap;">
+      <button id="split-btn-all"    onclick="setSplitMode('all')"    style="background:var(--green);color:#000;border:none;border-radius:8px;padding:0.5rem 1rem;font-family:'Syne',sans-serif;font-weight:700;font-size:0.82rem;cursor:pointer;">👥 All Members</button>
+      <button id="split-btn-custom" onclick="setSplitMode('custom')" style="background:var(--surface2);color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:0.5rem 1rem;font-family:'Syne',sans-serif;font-weight:700;font-size:0.82rem;cursor:pointer;">✏️ Choose Members</button>
     </div>
+
+    <!-- ALL MODE: preview -->
+    <div id="split-all-preview" style="background:var(--surface2);border-radius:8px;padding:0.75rem 1rem;margin-bottom:1rem;font-size:0.85rem;color:var(--muted);">
+      Splitting equally among <strong id="split-all-count" style="color:var(--green);">all members</strong>
+    </div>
+
+    <!-- CUSTOM MODE: tick boxes — each member a big tap-friendly tile -->
     <div id="split-custom-members" style="display:none;margin-bottom:1rem;">
-      <div style="font-size:0.82rem;color:var(--muted);margin-bottom:0.5rem;">Select who shares this bill:</div>
+      <div style="font-size:0.82rem;color:var(--muted);margin-bottom:0.6rem;">
+        Tap to select — highlighted = included in split:
+        <button onclick="selectAllMembers()" style="margin-left:0.5rem;background:none;border:1px solid var(--blue);color:var(--blue);border-radius:5px;padding:0.15rem 0.5rem;font-size:0.75rem;cursor:pointer;">Select All</button>
+        <button onclick="clearAllMembers()" style="margin-left:0.3rem;background:none;border:1px solid var(--muted);color:var(--muted);border-radius:5px;padding:0.15rem 0.5rem;font-size:0.75rem;cursor:pointer;">Clear</button>
+      </div>
       <div id="split-members-checkboxes" style="display:flex;flex-wrap:wrap;gap:0.5rem;"></div>
+      <div style="margin-top:0.6rem;font-size:0.82rem;color:var(--muted);">
+        Selected: <strong id="split-selected-count" style="color:var(--accent);">0</strong> members —
+        Per person: <strong id="split-per-person-preview" style="color:var(--accent);">AED 0</strong>
+      </div>
     </div>
 
     <div class="form-row"><label>Notes (optional)</label><input type="text" id="bill-notes" placeholder="e.g. Monthly stock from Lulu"></div>
@@ -931,6 +983,7 @@ function init(){
   }
   renderAll();
   renderSiteName();
+  initNotifications();
 }
 
 function renderAll(){
@@ -1146,6 +1199,7 @@ function postCookMessage(){
   var name=document.getElementById('cook-name').value.trim(); var msg=document.getElementById('cook-msg-input').value.trim(); if(!name||!msg) return alert('Enter name and message');
   data.cookMsgs.unshift({name:name,msg:msg,time:now.toLocaleString('en-IN'),id:Date.now()});
   document.getElementById('cook-name').value=''; document.getElementById('cook-msg-input').value='';
+  notifyCookMessage(name, msg);
   save(); renderCookMsgs(); renderDashboard();
 }
 function deleteCookMsg(id){ data.cookMsgs=data.cookMsgs.filter(function(x){return x.id!==id;}); save(); renderCookMsgs(); renderDashboard(); }
@@ -1335,7 +1389,9 @@ function postAnnouncement(){
   data.announcement=text; save();
   document.getElementById('announce-text').textContent=text;
   document.getElementById('announce-banner').style.display='flex';
-  document.getElementById('announce-input').value=''; renderNoticeboard();
+  document.getElementById('announce-input').value='';
+  notifyAnnouncement(text);
+  renderNoticeboard();
 }
 function clearAnnouncement(){ data.announcement=''; save(); document.getElementById('announce-banner').style.display='none'; renderNoticeboard(); }
 
@@ -1399,33 +1455,93 @@ function setSplitMode(mode){
   billSplitMode=mode;
   var allBtn=document.getElementById('split-btn-all');
   var cusBtn=document.getElementById('split-btn-custom');
-  var cusDiv=document.getElementById('split-custom-members');
+  var allPrev=document.getElementById('split-all-preview');
+  var cusDev=document.getElementById('split-custom-members');
   if(mode==='all'){
     allBtn.style.background='var(--green)'; allBtn.style.color='#000';
-    cusBtn.style.background='var(--surface2)'; cusBtn.style.color='var(--muted)';
-    cusDiv.style.display='none';
+    cusBtn.style.background='var(--surface2)'; cusBtn.style.color='var(--muted)'; cusBtn.style.border='1px solid var(--border)';
+    allPrev.style.display='block'; cusDev.style.display='none';
+    document.getElementById('split-all-count').textContent='all '+data.members.length+' members';
   } else {
-    cusBtn.style.background='var(--blue)'; cusBtn.style.color='#fff';
+    cusBtn.style.background='var(--blue)'; cusBtn.style.color='#fff'; cusBtn.style.border='none';
     allBtn.style.background='var(--surface2)'; allBtn.style.color='var(--muted)';
-    cusDiv.style.display='block';
+    allPrev.style.display='none'; cusDev.style.display='block';
     renderSplitCheckboxes();
   }
 }
 
 function renderSplitCheckboxes(){
   var el=document.getElementById('split-members-checkboxes'); if(!el) return;
+  // Start with NONE selected so user explicitly picks
   el.innerHTML=data.members.map(function(m){
-    return '<label style="display:flex;align-items:center;gap:0.4rem;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:0.4rem 0.75rem;cursor:pointer;font-size:0.85rem;">' +
-      '<input type="checkbox" value="'+m+'" checked style="accent-color:var(--accent);"> '+m+'</label>';
+    return '<div id="split-tile-'+m.replace(/\s/g,'_')+'" onclick="toggleSplitMember(\''+m+'\')" style="'+
+      'display:flex;align-items:center;gap:0.5rem;padding:0.6rem 1rem;border-radius:8px;cursor:pointer;'+
+      'background:var(--surface2);border:2px solid var(--border);transition:all 0.15s;user-select:none;'+
+      'min-width:100px;justify-content:center;">' +
+      '<span id="split-check-'+m.replace(/\s/g,'_')+'">☐</span>' +
+      '<span style="font-size:0.88rem;font-weight:600;">'+m+'</span>' +
+    '</div>';
   }).join('');
+  updateSplitPreview();
+}
+
+function toggleSplitMember(name){
+  var key=name.replace(/\s/g,'_');
+  var tile=document.getElementById('split-tile-'+key);
+  var chk=document.getElementById('split-check-'+key);
+  if(!tile||!chk) return;
+  var selected=tile.getAttribute('data-selected')==='1';
+  if(selected){
+    tile.setAttribute('data-selected','0');
+    tile.style.background='var(--surface2)'; tile.style.borderColor='var(--border)';
+    chk.textContent='☐';
+  } else {
+    tile.setAttribute('data-selected','1');
+    tile.style.background='rgba(52,152,219,0.15)'; tile.style.borderColor='var(--blue)';
+    chk.textContent='☑';
+  }
+  updateSplitPreview();
+}
+
+function selectAllMembers(){
+  data.members.forEach(function(m){
+    var key=m.replace(/\s/g,'_');
+    var tile=document.getElementById('split-tile-'+key);
+    var chk=document.getElementById('split-check-'+key);
+    if(tile){ tile.setAttribute('data-selected','1'); tile.style.background='rgba(52,152,219,0.15)'; tile.style.borderColor='var(--blue)'; }
+    if(chk) chk.textContent='☑';
+  });
+  updateSplitPreview();
+}
+
+function updateSplitPreview(){
+  var selected=getSelectedSplitMembers();
+  var cnt=document.getElementById('split-selected-count'); if(cnt) cnt.textContent=selected.length;
+  var amt=parseFloat(document.getElementById('bill-amount').value)||0;
+  var pp=document.getElementById('split-per-person-preview');
+  if(pp) pp.textContent=selected.length>0?'AED '+(amt/selected.length).toFixed(2):'AED 0';
 }
 
 function getSelectedSplitMembers(){
   if(billSplitMode==='all') return data.members.slice();
-  var boxes=document.querySelectorAll('#split-members-checkboxes input[type=checkbox]');
   var selected=[];
-  boxes.forEach(function(b){ if(b.checked) selected.push(b.value); });
-  return selected.length>0?selected:data.members.slice();
+  data.members.forEach(function(m){
+    var key=m.replace(/\s/g,'_');
+    var tile=document.getElementById('split-tile-'+key);
+    if(tile&&tile.getAttribute('data-selected')==='1') selected.push(m);
+  });
+  return selected.length>0?selected:[];
+}
+
+function clearAllMembers(){
+  data.members.forEach(function(m){
+    var key=m.replace(/\s/g,'_');
+    var tile=document.getElementById('split-tile-'+key);
+    var chk=document.getElementById('split-check-'+key);
+    if(tile){ tile.setAttribute('data-selected','0'); tile.style.background='var(--surface2)'; tile.style.borderColor='var(--border)'; }
+    if(chk) chk.textContent='☐';
+  });
+  updateSplitPreview();
 }
 
 function addBill(){
@@ -1438,6 +1554,7 @@ function addBill(){
   if(!paidBy) return alert('Enter who paid');
   if(!date) return alert('Select a date');
   var splitMembers=getSelectedSplitMembers();
+  if(splitMembers.length===0) return alert('Please select at least one member to split the bill with');
   var bill={
     id:Date.now(),
     title:title,
@@ -1449,9 +1566,9 @@ function addBill(){
     perPerson:Math.round((amount/splitMembers.length)*100)/100,
     notes:document.getElementById('bill-notes').value.trim()
   };
+  notifyNewBill(bill.title, bill.amount.toFixed(2), bill.paidBy);
   if(!data.bills) data.bills=[];
   data.bills.unshift(bill);
-  // Reset form
   document.getElementById('bill-title').value=''; document.getElementById('bill-amount').value='';
   document.getElementById('bill-paidby').value=''; document.getElementById('bill-notes').value='';
   document.getElementById('bill-add-form').style.display='none';
@@ -1591,6 +1708,98 @@ function renderBills(){
       '<td><button class="del-btn" onclick="deleteBill('+b.id+')">✕</button></td>' +
     '</tr>';
   }).join('');
+}
+
+// ========== PUSH NOTIFICATIONS ==========
+function initNotifications(){
+  updateNotifStatusUI();
+}
+
+function updateNotifStatusUI(){
+  var icon=document.getElementById('notif-status-icon');
+  var text=document.getElementById('notif-status-text');
+  var sub=document.getElementById('notif-status-sub');
+  var enableBtn=document.getElementById('notif-enable-btn');
+  var testBtn=document.getElementById('notif-test-btn');
+  if(!icon||!text) return;
+
+  if(!('Notification' in window)){
+    icon.textContent='❌';
+    text.textContent='Not supported on this browser';
+    sub.textContent='Try Chrome or Firefox on Android';
+    return;
+  }
+  var perm=Notification.permission;
+  if(perm==='granted'){
+    icon.textContent='✅';
+    text.textContent='Notifications are ON';
+    text.style.color='var(--green)';
+    sub.textContent='You will receive alerts on this device';
+    if(enableBtn) enableBtn.style.display='none';
+    if(testBtn) testBtn.style.display='inline-block';
+  } else if(perm==='denied'){
+    icon.textContent='🚫';
+    text.textContent='Notifications are blocked';
+    text.style.color='var(--red)';
+    sub.textContent='Go to browser Settings → Site Settings → Notifications → Allow for this site';
+    if(enableBtn) enableBtn.style.display='none';
+    if(testBtn) testBtn.style.display='none';
+  } else {
+    icon.textContent='🔕';
+    text.textContent='Notifications are not enabled yet';
+    text.style.color='var(--muted)';
+    sub.textContent='Click the button below to receive alerts on this device';
+    if(enableBtn) enableBtn.style.display='inline-block';
+    if(testBtn) testBtn.style.display='none';
+  }
+}
+
+function requestNotifPermission(){
+  if(!('Notification' in window)) return alert('Your browser does not support notifications. Try Chrome on Android.');
+  Notification.requestPermission().then(function(perm){
+    updateNotifStatusUI();
+    if(perm==='granted'){
+      pushNotif('🎉 Rashidiya Room Mess','Notifications enabled! You\'ll now get alerts for menu, bills and announcements.','📌');
+    }
+  });
+}
+
+function sendTestNotif(){
+  pushNotif('🧪 Test Notification','This is a test from Rashidiya Room Mess. Notifications are working!','✅');
+}
+
+function pushNotif(title, body, icon){
+  if(!('Notification' in window)||Notification.permission!=='granted') return;
+  // Use service worker for better mobile support
+  if(navigator.serviceWorker && navigator.serviceWorker.controller){
+    navigator.serviceWorker.ready.then(function(reg){
+      reg.showNotification(title,{
+        body:body,
+        icon:'https://em-content.zobj.net/source/apple/354/house_1f3e0.png',
+        badge:'https://em-content.zobj.net/source/apple/354/house_1f3e0.png',
+        tag:'rashidiya-mess',
+        vibrate:[200,100,200],
+        data:{url:window.location.href}
+      });
+    });
+  } else {
+    // Fallback: direct notification
+    new Notification(title,{body:body,icon:'https://em-content.zobj.net/source/apple/354/house_1f3e0.png'});
+  }
+}
+
+// Auto-notify on key events
+function notifyAnnouncement(text){
+  pushNotif('📣 New Announcement — Rashidiya Room Mess', text, '📣');
+}
+function notifyMenuUpdate(day, meal, dish){
+  pushNotif('🍽️ Menu Updated — '+day+' '+meal, dish+' has been set for '+meal.toLowerCase(), '🍽️');
+}
+function notifyNewBill(title, amount, paidBy){
+  pushNotif('💰 New Bill Added', paidBy+' paid AED '+amount+' for '+title, '💰');
+}
+function notifyCookMessage(cookName, msg){
+  pushNotif('👨‍🍳 Message from '+cookName, msg.slice(0,80)+(msg.length>80?'…':''), '👨‍🍳');
 }
 
 // these are already global (var/function in plain script) — no window.assign needed
